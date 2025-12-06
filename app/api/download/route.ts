@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleDriveService } from '@/lib/googleDriveService'
 
 export async function GET(request: NextRequest) {
     try {
@@ -13,21 +12,10 @@ export async function GET(request: NextRequest) {
 
         console.log('🔽 Téléchargement via API:', { fileUrl, filename })
 
-        // Vérifier si c'est un fichier Google Drive
-        const fileIdMatch = fileUrl.match(/\/file\/d\/([a-zA-Z0-9-_]+)/)
-        if (!fileIdMatch) {
-            return NextResponse.json({ error: 'URL Google Drive invalide' }, { status: 400 })
-        }
-
-        const fileId = fileIdMatch[1]
-        
-        // ✅ NOUVEAU : Utiliser le service Google Drive pour télécharger
+        // For Cloudinary URLs, we can redirect directly
+        // Cloudinary URLs are already publicly accessible
         try {
-            // Créer l'URL de téléchargement direct
-            const directDownloadUrl = GoogleDriveService.getDirectDownloadUrl(fileId)
-            
-            // Faire la requête vers Google Drive
-            const response = await fetch(directDownloadUrl, {
+            const response = await fetch(fileUrl, {
                 method: 'GET',
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (compatible; NCH-Community/1.0)',
@@ -35,7 +23,7 @@ export async function GET(request: NextRequest) {
             })
 
             if (!response.ok) {
-                throw new Error(`Erreur Google Drive: ${response.status}`)
+                throw new Error(`Erreur téléchargement: ${response.status}`)
             }
 
             // Obtenir le type de contenu
@@ -71,8 +59,8 @@ export async function GET(request: NextRequest) {
                 },
             })
 
-        } catch (driveError) {
-            console.error('❌ Erreur Google Drive:', driveError)
+        } catch (downloadError) {
+            console.error('❌ Erreur téléchargement:', downloadError)
             
             // Fallback: redirection vers l'URL originale
             return NextResponse.redirect(fileUrl)

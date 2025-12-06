@@ -45,18 +45,18 @@ export const useFileUpload = () => {
       const uploadedFile: UploadedFile = {
         fileId: result.publicId,
         url: result.url,
-        downloadUrl: result.downloadUrl,
-        name: result.fileInfo.name,
-        size: result.fileInfo.size,
-        type: result.fileInfo.type,
+        downloadUrl: result.downloadUrl || result.url,
+        name: result.fileInfo?.name || file.name,
+        size: result.fileInfo?.size || file.size,
+        type: result.fileInfo?.type || file.type,
       }
 
       toast.success('Fichier uploadé avec succès')
 
-      // ✅ RETOURNER LE FICHIER ET L'ID DU DOSSIER
+      // ✅ Return the uploaded file info
       return {
         file: uploadedFile,
-        folderId: result.driveInfo.folderId
+        folderId: result.cloudinaryInfo?.folder || actualClientFolder
       }
 
     } catch (error) {

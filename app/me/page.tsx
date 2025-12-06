@@ -22,7 +22,11 @@ import {
     Clock,
     XCircle,
     AlertCircle,
-    Globe
+    Globe,
+    Download,
+    Eye,
+    Image as ImageIcon,
+    File
 } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -46,17 +50,18 @@ interface ClientData {
     diploma: string
     selectedOffer: string
     paymentMethod: string
+    paymentType?: string
     status: string
     paymentStatus: string
     selectedCountries: string[]
     createdAt: string
     updatedAt: string
-    lastLogin?: string
     documents?: any
     driveFolder?: any
     totalAmount?: number
     paidAmount?: number
     remainingAmount?: number
+    baridiMobInfo?: any
     stages?: Stage[]
 }
 
@@ -446,13 +451,13 @@ export default function ClientDashboard() {
 
                                         <div>
                                             <label className="text-sm font-medium text-gray-500 mb-1 block">
-                                                Dernière connexion
+                                                Date d'inscription
                                             </label>
                                             <div className="flex items-center text-gray-900">
                                                 <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                                                {client.lastLogin
-                                                    ? new Date(client.lastLogin).toLocaleDateString('fr-FR')
-                                                    : 'Première connexion'
+                                                {client.createdAt
+                                                    ? new Date(client.createdAt).toLocaleDateString('fr-FR')
+                                                    : 'Non disponible'
                                                 }
                                             </div>
                                         </div>
@@ -483,6 +488,110 @@ export default function ClientDashboard() {
                         </Card>
                     </div>
                 </div>
+
+                {/* Documents Section */}
+                {client.documents && Object.keys(client.documents).length > 0 && (
+                    <div className="mt-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center">
+                                    <FileText className="h-5 w-5 mr-2 text-nch-primary" />
+                                    Mes Documents
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {Object.entries(client.documents).map(([docType, docData]: [string, any]) => {
+                                        if (!docData || !docData.url) return null
+                                        
+                                        const docLabels: Record<string, string> = {
+                                            id: 'Carte d\'identité',
+                                            diploma: 'Diplôme',
+                                            workCertificate: 'Certificat de travail',
+                                            photo: 'Photo',
+                                            paymentReceipt: 'Reçu de paiement'
+                                        }
+                                        
+                                        const isImage = docData.url?.includes('/image/') || 
+                                                       docData.type?.startsWith('image/') ||
+                                                       docData.format === 'jpg' || 
+                                                       docData.format === 'png' ||
+                                                       docData.format === 'jpeg'
+                                        const isPdf = docData.url?.includes('/raw/') || 
+                                                     docData.type === 'application/pdf' ||
+                                                     docData.format === 'pdf' ||
+                                                     docData.name?.endsWith('.pdf')
+                                        
+                                        return (
+                                            <div key={docType} className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center">
+                                                        {isPdf ? (
+                                                            <File className="h-5 w-5 text-red-500 mr-2" />
+                                                        ) : (
+                                                            <ImageIcon className="h-5 w-5 text-blue-500 mr-2" />
+                                                        )}
+                                                        <span className="font-medium text-sm">
+                                                            {docLabels[docType] || docType}
+                                                        </span>
+                                                    </div>
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {isPdf ? 'PDF' : 'Image'}
+                                                    </Badge>
+                                                </div>
+                                                
+                                                {/* Preview for images */}
+                                                {isImage && docData.url && (
+                                                    <div className="mb-3 rounded overflow-hidden border">
+                                                        <img 
+                                                            src={docData.url} 
+                                                            alt={docLabels[docType] || docType}
+                                                            className="w-full h-24 object-cover"
+                                                            onError={(e) => {
+                                                                (e.target as HTMLImageElement).style.display = 'none'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
+                                                
+                                                {/* PDF preview placeholder */}
+                                                {isPdf && (
+                                                    <div className="mb-3 rounded border bg-red-50 h-24 flex items-center justify-center">
+                                                        <File className="h-10 w-10 text-red-400" />
+                                                    </div>
+                                                )}
+                                                
+                                                <div className="flex gap-2">
+                                                    <a
+                                                        href={docData.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex-1"
+                                                    >
+                                                        <Button size="sm" variant="outline" className="w-full text-xs">
+                                                            <Eye className="h-3 w-3 mr-1" />
+                                                            Voir
+                                                        </Button>
+                                                    </a>
+                                                    <a
+                                                        href={docData.downloadUrl || docData.url}
+                                                        download={docData.name || `${docType}.${isPdf ? 'pdf' : 'jpg'}`}
+                                                        className="flex-1"
+                                                    >
+                                                        <Button size="sm" variant="default" className="w-full text-xs bg-nch-primary hover:bg-nch-primary/90">
+                                                            <Download className="h-3 w-3 mr-1" />
+                                                            Télécharger
+                                                        </Button>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
 
                 {/* Payment Reminder Section */}
                 {client.paymentStatus === 'partially_paid' && client.stages && (

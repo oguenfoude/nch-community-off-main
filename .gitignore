@@ -88,6 +88,18 @@ prisma/generated/
 .tmp
 
 # =============================================================================
+# CREDENTIALS / SECRETS (NEVER COMMIT)
+# =============================================================================
+credentials/
+**/credentials/
+*.credentials.json
+*-credentials.json
+drive-service.json
+client_secret*.json
+service-account*.json
+*service*.json
+
+# =============================================================================
 # LOCK FILES (keep package-lock.json for npm)
 # =============================================================================
 pnpm-lock.yaml

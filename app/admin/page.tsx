@@ -148,7 +148,7 @@ export default function AdminDashboard() {
         await deleteClient(clientId)
         toast.success("Client supprimé avec succès")
         handleFetchClients()
-        if (selectedClient?._id === clientId) {
+        if (selectedClient?.id === clientId) {
           setSelectedClient(null)
         }
       } catch (error: any) {
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
       await updateClient(clientId, { status: newStatus })
       toast.success("Statut mis à jour avec succès")
       handleFetchClients()
-      if (selectedClient?._id === clientId) {
+      if (selectedClient?.id === clientId) {
         setSelectedClient({ ...selectedClient, status: newStatus })
       }
     } catch (error: any) {
@@ -206,12 +206,12 @@ export default function AdminDashboard() {
   const handleEditClient = async (updatedClient: Client) => {
     setLoadingState('editing', true)
     try {
-      await updateClient(updatedClient._id, updatedClient)
+      await updateClient(updatedClient.id, updatedClient)
       toast.success("Client modifié avec succès")
       setIsEditDialogOpen(false)
       setEditingClient(null)
       handleFetchClients()
-      if (selectedClient?._id === updatedClient._id) {
+      if (selectedClient?.id === updatedClient.id) {
         setSelectedClient(updatedClient)
       }
     } catch (error: any) {
@@ -247,7 +247,7 @@ export default function AdminDashboard() {
       handleFetchClients()
 
       // Mettre à jour le client sélectionné
-      if (selectedClient?._id === clientId) {
+      if (selectedClient?.id === clientId) {
         setSelectedClient({
           ...selectedClient,
           documents: {
@@ -282,7 +282,7 @@ export default function AdminDashboard() {
         handleFetchClients()
 
         // Mettre à jour le client sélectionné
-        if (selectedClient?._id === clientId) {
+        if (selectedClient?.id === clientId) {
           const updatedDocuments = { ...selectedClient.documents }
           delete updatedDocuments[documentType as keyof typeof updatedDocuments]
           setSelectedClient({

@@ -7,9 +7,12 @@ import { prisma } from '@/lib/prisma'
 // GET - Fetch all stages for a client (ADMIN)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ Attendre les params (Next.js 15)
+    const { id } = await params
+    
     const session = await getServerSession(authOptions)
 
     if (!session || session.user.userType !== 'admin') {
@@ -20,7 +23,7 @@ export async function GET(
     }
 
     const stages = await prisma.clientStage.findMany({
-      where: { clientId: params.id },
+      where: { clientId: id },
       orderBy: { stageNumber: 'asc' }
     })
 
@@ -40,9 +43,12 @@ export async function GET(
 // POST - Initialize all stages for a client (ADMIN)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ Attendre les params (Next.js 15)
+    const { id } = await params
+    
     const session = await getServerSession(authOptions)
 
     if (!session || session.user.userType !== 'admin') {
@@ -54,7 +60,7 @@ export async function POST(
 
     // Check if stages already exist
     const existingStages = await prisma.clientStage.findMany({
-      where: { clientId: params.id }
+      where: { clientId: id }
     })
 
     if (existingStages.length > 0) {
@@ -116,7 +122,7 @@ export async function POST(
       stageDefinitions.map(stage =>
         prisma.clientStage.create({
           data: {
-            clientId: params.id,
+            clientId: id,
             ...stage
           }
         })
@@ -140,9 +146,12 @@ export async function POST(
 // PUT - Update a specific stage (ADMIN)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ Attendre les params (Next.js 15)
+    const { id } = await params
+    
     const session = await getServerSession(authOptions)
 
     if (!session || session.user.userType !== 'admin') {
@@ -188,7 +197,7 @@ export async function PUT(
     // Check if stage exists
     const existingStage = await prisma.clientStage.findFirst({
       where: {
-        clientId: params.id,
+        clientId: id,
         stageNumber
       }
     })
@@ -210,7 +219,7 @@ export async function PUT(
       // ✅ FIX: Create new stage WITH stageName
       updatedStage = await prisma.clientStage.create({
         data: {
-          clientId: params.id,
+          clientId: id,
           stageNumber,
           stageName, // ✅ AJOUT DU CHAMP MANQUANT
           status: status || 'not_started',

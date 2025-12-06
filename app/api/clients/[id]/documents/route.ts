@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import dbConnect from "@/lib/mongodb"
-import Client from "@/models/Client"
+import { prisma } from "@/lib/prisma"
 import { requireAdmin } from '@/lib/auth'
-import { GoogleDriveService } from '@/lib/googleDriveService'
+import { uploadToCloudinary, deleteFromCloudinary } from '@/lib/cloudinaryService'
 
 // Limites et types autorisés
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
@@ -14,11 +13,13 @@ const ALLOWED_TYPES = [
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdmin(request)
-    await dbConnect()
+    
+    // ✅ Attendre les params (Next.js 15)
+    const { id } = await params
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -81,34 +82,51 @@ export async function POST(
     //   }
     // }
 
-    // Upload vers Google Drive
-    const uploadResult = await GoogleDriveService.uploadFile(
+    // Upload vers Cloudinary
+    const uploadResult = await uploadToCloudinary(
       buffer,
-      "file",
-      file.type,
+      `client_${id}_${documentType}`,
+      {
+        folder: `nch-community/clients/${id}`,
+        resourceType: file.type === 'application/pdf' ? 'raw' : 'image'
+      }
     )
-
-    // URL de visualisation Google Drive
-    const documentUrl = GoogleDriveService.getViewUrl(uploadResult.id)
 
     // Mettre à jour le document dans la base de données
-    const updateField = `documents.${documentType}`
-    await Client.findByIdAndUpdate(
-      params.id,
-      {
-        $set: { [updateField]: documentUrl }
-      },
-      { new: true }
-    )
+    const client = await prisma.client.findUnique({
+      where: { id }
+    })
+
+    if (!client) {
+      return NextResponse.json(
+        { error: 'Client non trouvé' },
+        { status: 404 }
+      )
+    }
+
+    const currentDocuments = (client.documents as any) || {}
+    const updatedDocuments = {
+      ...currentDocuments,
+      [documentType]: {
+        publicId: uploadResult.publicId,
+        url: uploadResult.url,
+        format: uploadResult.format,
+        size: uploadResult.size
+      }
+    }
+
+    await prisma.client.update({
+      where: { id },
+      data: { documents: updatedDocuments }
+    })
 
     return NextResponse.json({
       message: 'Document uploadé avec succès',
-      url: documentUrl,
-      downloadUrl: GoogleDriveService.getDirectDownloadUrl(uploadResult.id),
+      url: uploadResult.url,
       fileInfo: {
-        name: uploadResult.name,
+        publicId: uploadResult.publicId,
         size: uploadResult.size,
-        type: file.type
+        format: uploadResult.format
       }
     })
 
@@ -123,11 +141,13 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await requireAdmin(request)
-    await dbConnect()
+    
+    // ✅ Attendre les params (Next.js 15)
+    const { id } = await params
 
     const { searchParams } = new URL(request.url)
     const documentType = searchParams.get('documentType')
@@ -139,7 +159,9 @@ export async function DELETE(
       )
     }
 
-    const client = await Client.findById(params.id)
+    const client = await prisma.client.findUnique({
+      where: { id }
+    })
     if (!client) {
       return NextResponse.json(
         { error: 'Client non trouvé' },
@@ -147,27 +169,28 @@ export async function DELETE(
       )
     }
 
-    const documentUrl = client.documents?.[documentType as keyof typeof client.documents]
-    if (!documentUrl) {
+    const documents = (client.documents as any) || {}
+    const documentData = documents[documentType]
+    if (!documentData) {
       return NextResponse.json(
         { error: 'Document non trouvé' },
         { status: 404 }
       )
     }
 
-    // Extraire l'ID du fichier depuis l'URL Google Drive
-    const fileIdMatch = documentUrl.match(/\/file\/d\/([a-zA-Z0-9-_]+)/)
-    if (fileIdMatch) {
-      await GoogleDriveService.deleteFile(fileIdMatch[1])
+    // Supprimer de Cloudinary
+    if (documentData.publicId) {
+      await deleteFromCloudinary(documentData.publicId)
     }
 
     // Supprimer de la base de données
-    const updateField = `documents.${documentType}`
-    await Client.findByIdAndUpdate(
-      params.id,
-      { $unset: { [updateField]: "" } },
-      { new: true }
-    )
+    const updatedDocuments = { ...documents }
+    delete updatedDocuments[documentType]
+
+    await prisma.client.update({
+      where: { id },
+      data: { documents: updatedDocuments }
+    })
 
     return NextResponse.json({
       message: 'Document supprimé avec succès'

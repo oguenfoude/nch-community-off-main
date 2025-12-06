@@ -7,7 +7,7 @@ import { Header } from '@/components/client/layout/Header'
 import { Hero } from '@/components/client/layout/Hero'
 import { Footer } from '@/components/client/layout/Footer'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
-import RegistrationForm from '@/components/client/forms/regestration/RegestrationForm'
+import RegistrationForm from '@/components/client/forms/registration/RegistrationForm'
 import { translations } from '@/lib/translations'
 import { FormData, Language } from '@/lib/types/form'
 

@@ -2,50 +2,179 @@
 import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Upload, Check, Eye, Trash2, Download } from 'lucide-react'
+import { Upload, Check, Eye, Trash2, Download, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { DocumentType, UploadedFile } from '@/lib/types/form'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 
-interface FileUploadProps {
+// ✅ Props for DEFERRED mode (new single-page form)
+interface DeferredModeProps {
+  mode: 'deferred'
+  pendingFile: File | null
+  onFileSelect: (file: File | null) => void
+  // Not needed in deferred mode
+  clientFolder?: never
+  clientFolderId?: never
+  onFolderCreated?: never
+  onChange?: never
+  file?: never
+}
+
+// ✅ Props for IMMEDIATE mode (original behavior)
+interface ImmediateModeProps {
+  mode?: 'immediate'
+  file: UploadedFile | null
+  clientFolder: string
+  clientFolderId?: string
+  onFolderCreated: (folderId: string) => void
+  onChange: (file: UploadedFile | null) => void
+  // Not needed in immediate mode
+  pendingFile?: never
+  onFileSelect?: never
+}
+
+// ✅ Common props
+interface CommonProps {
   label: string
   field: DocumentType
   icon: React.ReactNode
-  file: UploadedFile | null
-  clientFolder: string
-  clientFolderId?: string // ✅ AJOUTER L'ID DU DOSSIER
-  onFolderCreated: (folderId: string) => void // ✅ CALLBACK POUR L'ID
-  onChange: (file: UploadedFile | null) => void
   disabled?: boolean
 }
 
-export const FileUpload = ({
-  label,
-  field,
-  icon,
-  file,
-  clientFolder,
-  clientFolderId, // ✅ RECEVOIR L'ID DU DOSSIER
-  onFolderCreated, // ✅ CALLBACK POUR SAUVEGARDER L'ID
-  onChange,
-  disabled = false
-}: FileUploadProps) => {
+type FileUploadProps = CommonProps & (DeferredModeProps | ImmediateModeProps)
+
+export const FileUpload = (props: FileUploadProps) => {
+  const {
+    label,
+    field,
+    icon,
+    disabled = false,
+    mode = 'immediate'
+  } = props
+
   const [uploadError, setUploadError] = useState<string | null>(null)
   const { isUploading, uploadFile, deleteFile } = useFileUpload()
+
+  const inputId = `${field}-upload`
+
+  // ✅ Format file size for display
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+  }
+
+  // ✅ DEFERRED MODE: Store file locally, no upload
+  if (mode === 'deferred') {
+    const { pendingFile, onFileSelect } = props as DeferredModeProps & CommonProps
+
+    const handleFileSelect = (selectedFile: File | null) => {
+      if (!selectedFile || disabled) return
+
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+      if (!allowedTypes.includes(selectedFile.type)) {
+        toast.error('Format non supporté. Utilisez PDF, JPG ou PNG.')
+        return
+      }
+
+      // Validate file size (max 10MB)
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        toast.error('Fichier trop volumineux. Maximum 10MB.')
+        return
+      }
+
+      onFileSelect(selectedFile)
+      toast.success(`Fichier sélectionné: ${selectedFile.name}`)
+    }
+
+    const handleRemove = () => {
+      onFileSelect(null)
+    }
+
+    return (
+      <div className="space-y-2">
+        <Label htmlFor={inputId} className="font-semibold text-base sm:text-lg flex items-center gap-2">
+          {icon}
+          {label}
+        </Label>
+
+        <label
+          htmlFor={inputId}
+          className={`block cursor-pointer border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors ${
+            pendingFile 
+              ? 'border-green-400 bg-green-50' 
+              : 'border-gray-300 hover:border-nch-primary'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {!pendingFile ? (
+            <>
+              <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
+              <p className="mt-2 text-xs sm:text-sm text-gray-600">Cliquez pour sélectionner</p>
+              <p className="text-xs text-gray-500">PDF, JPG, PNG (max. 10MB)</p>
+              <p className="text-xs text-orange-500 mt-1">📎 Sera uploadé lors de la confirmation</p>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-2">
+                <FileText className="h-6 w-6 text-green-600" />
+                <Check className="h-5 w-5 text-green-500" />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-sm text-green-700 font-medium break-all">
+                  📎 {pendingFile.name}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formatFileSize(pendingFile.size)}
+                </p>
+                <p className="text-xs text-orange-600 font-medium">
+                  ⏳ Prêt pour upload
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleRemove()
+                }}
+                className="mt-2 text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Retirer
+              </Button>
+            </div>
+          )}
+
+          <input
+            type="file"
+            id={inputId}
+            className="hidden"
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
+            disabled={disabled}
+          />
+        </label>
+      </div>
+    )
+  }
+
+  // ✅ IMMEDIATE MODE: Original behavior (upload immediately)
+  const { file, clientFolder, clientFolderId, onFolderCreated, onChange } = props as ImmediateModeProps & CommonProps
 
   const handleFileChange = async (selectedFile: File | null) => {
     if (!selectedFile || disabled) return
 
     setUploadError(null)
 
-    // ✅ UTILISER LE DOSSIER CLIENT ET SON ID
     const uploadResult = await uploadFile(selectedFile, field, clientFolder, clientFolderId)
 
     if (uploadResult) {
       onChange(uploadResult.file)
 
-      // ✅ SAUVEGARDER L'ID DU DOSSIER SI C'EST LE PREMIER UPLOAD
       if (uploadResult.folderId && !clientFolderId) {
         onFolderCreated(uploadResult.folderId)
       }
@@ -75,8 +204,6 @@ export const FileUpload = ({
       window.open(file.downloadUrl, '_blank')
     }
   }
-
-  const inputId = `${field}-upload`
 
   return (
     <div className="space-y-2">
@@ -115,7 +242,7 @@ export const FileUpload = ({
                 {file.name}
               </p>
               <p className="text-xs text-gray-500">
-                Taille: {(file.size / 1024 / 1024).toFixed(2)} MB
+                Taille: {formatFileSize(parseInt(file.size) || 0)}
               </p>
               <p className="text-xs text-blue-500">📁 Stocké sur Google Drive</p>
 

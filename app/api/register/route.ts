@@ -1,7 +1,7 @@
 // app/api/register/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { GoogleDriveService } from "@/lib/googleDriveService"
+import { appendClientToSheet } from "@/lib/googleSheetsService"
 import axios from "axios"
 import crypto from 'crypto'
 import SofizPaySDK from 'sofizpay-sdk-js';
@@ -72,6 +72,13 @@ async function createClient(data: any) {
     console.log(`🔑 Mot de passe généré pour ${data.firstName} ${data.lastName}: ${generatedPassword}`)
 
     // ✅ Créer avec Prisma en incluant le mot de passe
+    // Build driveFolder from Cloudinary documents (legacy field, now stores Cloudinary URLs)
+    const driveFolder = {
+        provider: 'cloudinary',
+        files: data.documents || {},
+        createdAt: new Date().toISOString()
+    };
+
     const client = await prisma.client.create({
         data: {
             firstName: data.firstName,
@@ -82,15 +89,39 @@ async function createClient(data: any) {
             diploma: data.diploma,
             selectedOffer: data.selectedOffer,
             paymentMethod: data.paymentMethod,
-            paymentType: data.paymentType, // ✅ NEW: Store payment type
+            paymentType: data.paymentType, // ✅ Store payment type
             baridiMobInfo: data.baridiMobInfo || null, // ✅ Store BaridiMob info
             selectedCountries: data.selectedCountries,
             documents: data.documents,
-            driveFolder: data.driveFolder,
+            driveFolder: driveFolder, // ✅ Required field - now stores Cloudinary info
             password: generatedPassword, // ✅ Ajouter le mot de passe généré
             status: 'pending', // ✅ Statut initial
         }
     });
+
+    // ✅ Add to Google Sheets with ALL data (non-blocking)
+    appendClientToSheet({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        wilaya: data.wilaya,
+        diploma: data.diploma,
+        selectedOffer: data.selectedOffer,
+        selectedCountries: data.selectedCountries,
+        paymentMethod: data.paymentMethod,
+        paymentType: data.paymentType,
+        paymentStatus: 'pending',
+        baridiMobInfo: data.baridiMobInfo,
+        password: generatedPassword,
+        documents: {
+            id: data.documents?.id,
+            diploma: data.documents?.diploma,
+            workCertificate: data.documents?.workCertificate,
+            photo: data.documents?.photo,
+            paymentReceipt: data.documents?.paymentReceipt
+        }
+    }).catch(err => console.error('Google Sheets error (non-blocking):', err))
 
     return { client, password: generatedPassword };
 }
@@ -167,34 +198,8 @@ const makeCIBTransaction = async (transactionData: {
     }
 }
 
-// ✅ NEW: Calculate payment amount based on offer and payment type
-export const calculatePaymentAmount = (offer: string, paymentType: 'full' | 'partial'): number => {
-    const basePrices = {
-        basic: 21000,
-        premium: 28000,
-        gold: 35000
-    }
-    
-    const basePrice = basePrices[offer as keyof typeof basePrices] || 21000
-    
-    if (paymentType === 'full') {
-        // Full payment with 1000 DA discount
-        return basePrice - 1000
-    } else {
-        // Partial payment: 50% upfront
-        return basePrice * 0.5
-    }
-}
-
-// ✅ Keep old function for backwards compatibility
-export const getAmountByOffer = (offer: string): number => {
-    switch (offer) {
-        case 'basic': return 21000
-        case 'premium': return 28000
-        case 'gold': return 35000
-        default: return 21000
-    }
-}
+// ✅ Import shared pricing utilities
+import { calculatePaymentAmount, getAmountByOffer } from '@/lib/utils/pricing'
 
 // ✅ Fonction pour envoyer l'email avec les identifiants (optionnel)
 async function sendCredentialsEmail(email: string, firstName: string, lastName: string, password: string) {
@@ -467,8 +472,7 @@ async function sanitizeAndValidate(data: any) {
         paymentMethod: data.paymentMethod,
         paymentType: data.paymentType || 'partial',
         selectedCountries: data.selectedCountries || [],
-        documents: data.documents || {},
-        driveFolder: data.driveFolder
+        documents: data.documents || {}
     }
 
     // ✅ Add BaridiMob info if present

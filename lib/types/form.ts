@@ -28,12 +28,7 @@ export interface FormData {
   paymentMethod: string
   paymentType?: PaymentType
   paymentReceipt?: UploadedFile | null
-  baridiMobInfo?: BaridiMobInfo // ✅ NEW: BaridiMob account info
-
-  driveFolder: {
-    name: string
-    id?: string
-  }
+  baridiMobInfo?: BaridiMobInfo // ✅ BaridiMob account info
 
   documents: {
     id: UploadedFile | null
@@ -47,6 +42,25 @@ export type DocumentType = 'id' | 'diploma' | 'workCertificate' | 'photo'
 export type Language = 'fr' | 'ar'
 export type PaymentMethod = 'cib' | 'edahabia' | 'baridimob'
 export type PaymentType = 'full' | 'partial'
+
+// ✅ NEW: Pending files before upload (raw File objects)
+export interface PendingFiles {
+  id: File | null
+  diploma: File | null
+  workCertificate: File | null
+  photo: File | null
+  paymentReceipt: File | null  // ✅ Added: Payment receipt for BaridiMob
+}
+
+// ✅ NEW: Section status for UI indicators
+export type SectionStatus = 'complete' | 'incomplete' | 'error'
+
+export interface SectionValidation {
+  basicInfo: SectionStatus
+  documents: SectionStatus
+  offers: SectionStatus
+  payment: SectionStatus
+}
 
 export interface FormErrors {
   firstName?: string

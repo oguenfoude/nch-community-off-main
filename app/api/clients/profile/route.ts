@@ -27,14 +27,21 @@ export async function GET(request: NextRequest) {
                 diploma: true,
                 selectedOffer: true,
                 paymentMethod: true,
+                paymentType: true,
                 status: true,
                 paymentStatus: true,
+                totalAmount: true,
+                paidAmount: true,
+                remainingAmount: true,
+                baridiMobInfo: true,
                 selectedCountries: true,
                 documents: true,
                 driveFolder: true,
                 createdAt: true,
                 updatedAt: true,
-                lastLogin: true
+                stages: {
+                    orderBy: { stageNumber: 'asc' }
+                }
             }
         })
 

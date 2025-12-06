@@ -1,7 +1,7 @@
 // app/api/baridimob-payment/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { uploadToGoogleDrive } from '@/lib/googleDriveService'
+import { uploadToCloudinary } from '@/lib/cloudinaryService'
 
 export async function POST(request: NextRequest) {
     try {
@@ -19,18 +19,16 @@ export async function POST(request: NextRequest) {
 
         const parsedClientData = JSON.parse(clientData)
         
-        // ✅ Upload receipt to Google Drive
+        // ✅ Upload receipt to Cloudinary
         const receiptBuffer = await receiptFile.arrayBuffer()
-        const receiptUploadResult = await uploadToGoogleDrive(
+        const receiptUploadResult = await uploadToCloudinary(
             Buffer.from(receiptBuffer),
             receiptFile.name,
-            receiptFile.type,
-            parsedClientData.driveFolder.id || 'root'
+            {
+                folder: `nch-community/baridimob-receipts`,
+                resourceType: receiptFile.type === 'application/pdf' ? 'raw' : 'image'
+            }
         )
-
-        if (!receiptUploadResult.success) {
-            throw new Error('Failed to upload receipt to Google Drive')
-        }
 
         // ✅ Create pending registration with BaridiMob payment status
         const sessionToken = `baridimob_${Date.now()}_${Math.random().toString(36)}`
@@ -44,9 +42,9 @@ export async function POST(request: NextRequest) {
                     paymentMethod: 'baridimob',
                     paymentStatus: 'pending_verification',
                     paymentReceipt: {
-                        fileId: receiptUploadResult.fileId,
-                        url: receiptUploadResult.url,
-                        downloadUrl: receiptUploadResult.downloadUrl,
+                        fileId: receiptUploadResult.publicId,
+                        url: receiptUploadResult.secureUrl,
+                        downloadUrl: receiptUploadResult.secureUrl,
                         name: receiptFile.name,
                         size: receiptFile.size.toString(),
                         type: receiptFile.type

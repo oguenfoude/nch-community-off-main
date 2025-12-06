@@ -1,6 +1,6 @@
 // app/api/upload/route.ts
 import { type NextRequest, NextResponse } from "next/server"
-import { GoogleDriveService } from "@/lib/googleDriveService"
+import { uploadToCloudinary, deleteFromCloudinary, generateClientFolderName } from "@/lib/cloudinaryService"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,13 +10,11 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File
     const clientId = formData.get("clientId") as string
     const documentType = formData.get("documentType") as string
-    const existingFolderId = formData.get("existingFolderId") as string // ✅ NOUVEAU
 
     console.log('📋 Données reçues:')
     console.log('  - Client ID:', clientId)
     console.log('  - Document Type:', documentType)
-    console.log('  - Fichier:', file.name, '(', file.size, 'bytes )')
-    console.log('  - ID dossier existant:', existingFolderId) // ✅ LOG
+    console.log('  - Fichier:', file?.name, '(', file?.size, 'bytes )')
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
@@ -58,32 +56,36 @@ export async function POST(request: NextRequest) {
 
     console.log('📝 Nom du fichier généré:', fileName)
 
-    // Upload vers Google Drive
-    console.log('☁️ Upload vers Google Drive...')
-    const result = await GoogleDriveService.uploadFile(
-      buffer,
-      fileName,
-      file.type,
-      clientId, // Nom du dossier client
-      existingFolderId // ✅ PASSER L'ID DU DOSSIER EXISTANT
-    )
+    // Déterminer le type de ressource pour Cloudinary
+    const resourceType = file.type === 'application/pdf' ? 'raw' : 'image'
+
+    // Upload vers Cloudinary
+    console.log('☁️ Upload vers Cloudinary...')
+    const result = await uploadToCloudinary(buffer, fileName, {
+      folder: `nch-community/${clientId}`,
+      resourceType: resourceType as 'image' | 'raw',
+      publicId: `${documentType}_${Date.now()}`
+    })
 
     console.log('✅ Upload terminé avec succès!')
 
+    // Ensure we use secure URLs (HTTPS)
+    const secureUrl = result.secureUrl || result.url.replace('http://', 'https://')
+
     const response = {
-      url: GoogleDriveService.getViewUrl(result.id),
-      publicId: result.id,
-      downloadUrl: GoogleDriveService.getDirectDownloadUrl(result.id),
+      url: secureUrl,
+      publicId: result.publicId,
+      downloadUrl: secureUrl,
       fileInfo: {
-        name: result.name,
+        name: result.originalFilename,
         size: result.size,
         type: file.type,
-        originalName: file.name
+        originalName: file.name,
+        format: result.format
       },
-      driveInfo: {
-        folderId: result.folderId, // ✅ RETOURNER L'ID DU DOSSIER
-        webViewLink: result.webViewLink,
-        webContentLink: result.webContentLink
+      cloudinaryInfo: {
+        folder: result.folder,
+        publicId: result.publicId
       }
     }
 
@@ -105,15 +107,15 @@ export async function DELETE(request: NextRequest) {
     console.log('🗑️ Début suppression fichier')
 
     const { searchParams } = new URL(request.url)
-    const fileId = searchParams.get('fileId')
+    const publicId = searchParams.get('publicId') || searchParams.get('fileId')
 
-    console.log('📋 File ID à supprimer:', fileId)
+    console.log('📋 Public ID à supprimer:', publicId)
 
-    if (!fileId) {
-      return NextResponse.json({ error: "File ID required" }, { status: 400 })
+    if (!publicId) {
+      return NextResponse.json({ error: "Public ID required" }, { status: 400 })
     }
 
-    await GoogleDriveService.deleteFile(fileId)
+    await deleteFromCloudinary(publicId)
 
     console.log('✅ Fichier supprimé avec succès')
 

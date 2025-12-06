@@ -66,10 +66,6 @@ export default function ClientDetails({
             formData.append('clientId', clientId)
             formData.append('documentType', documentType)
 
-            if (selectedClient?.driveFolder?.id) {
-                formData.append('existingFolderId', selectedClient.driveFolder.id)
-            }
-
             const response = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData,
@@ -100,14 +96,6 @@ export default function ClientDetails({
                 }
             }
 
-            let updatedDriveFolder = currentClient.driveFolder
-            if (result.driveInfo?.folderId && !currentClient.driveFolder?.id) {
-                updatedDriveFolder = {
-                    name: currentClient.driveFolder?.name || `${currentClient.firstName}_${currentClient.lastName}`,
-                    id: result.driveInfo.folderId
-                }
-            }
-
             const fullClientUpdate = {
                 firstName: currentClient.firstName,
                 lastName: currentClient.lastName,
@@ -121,7 +109,6 @@ export default function ClientDetails({
                 paymentStatus: currentClient.paymentStatus,
                 selectedCountries: currentClient.selectedCountries || [],
                 documents: updatedDocuments,
-                driveFolder: updatedDriveFolder,
                 createdAt: currentClient.createdAt,
                 updatedAt: new Date().toISOString()
             }

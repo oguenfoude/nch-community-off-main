@@ -1,20 +1,24 @@
 // components/forms/registration/steps/PaymentStep.tsx
 import { PaymentOption } from '@/components/client/forms/shared/PaymentOption'
 import { CreditCard, Wallet, Building2, Clock, Download, FileText, Upload, CheckCircle, Copy, Check } from 'lucide-react'
-import { FormData as RegistrationFormData, FormErrors, PaymentMethod } from '@/lib/types/form'
+import { FormData as RegistrationFormData, FormErrors, PaymentMethod, PendingFiles } from '@/lib/types/form'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ADMIN_PAYMENT_INFO } from '@/lib/constants/adminPayment'
+import { toast } from 'sonner'
 
 interface PaymentStepProps {
   formData: RegistrationFormData
   errors: FormErrors
   translations: any
   onChange: (data: Partial<RegistrationFormData>) => void
+  // NEW: For deferred receipt upload
+  pendingReceiptFile?: File | null
+  onPendingReceiptChange?: (file: File | null) => void
 }
 
 // Helper component for payment info rows with copy button (Bilingual)
@@ -51,24 +55,47 @@ const PaymentInfoRow = ({ labelAr, labelFr, value, onCopy, copied }: {
   </div>
 )
 
-export const PaymentStep = ({ formData, errors, translations: t, onChange }: PaymentStepProps) => {
+export const PaymentStep = ({ formData, errors, translations: t, onChange, pendingReceiptFile, onPendingReceiptChange }: PaymentStepProps) => {
   const [isDownloading, setIsDownloading] = useState(false)
-  const [paymentReceipt, setPaymentReceipt] = useState<File | null>(null)
-  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false)
-  const [receiptUploaded, setReceiptUploaded] = useState(false)
-  const [showBaridiMobInfo, setShowBaridiMobInfo] = useState(false)
+  const [showBaridiMobInfo, setShowBaridiMobInfo] = useState(formData.paymentMethod === 'baridimob')
   const [copied, setCopied] = useState<string | null>(null)
 
+  // Use prop for receipt file if provided, otherwise local state
+  const receiptFile = pendingReceiptFile
+
   const selectPaymentMethod = (method: PaymentMethod) => {
-    onChange({ paymentMethod: method })
-    // Show BaridiMob info when CCP/BARIDI MOB is selected
+    // Only BaridiMob is available for now
+    if (method !== 'baridimob') {
+      toast.error('Cette méthode de paiement n\'est pas disponible pour le moment. Veuillez utiliser CCP / BaridiMob.')
+      return
+    }
+    
+    // Set both paymentMethod AND default paymentType when selecting a method
+    const updates: Partial<RegistrationFormData> = { 
+      paymentMethod: method,
+      paymentType: formData.paymentType || 'full' // Set default to 'full' if not already set
+    }
+    
+    // Add baridiMobInfo when BaridiMob is selected (with admin payment details)
     if (method === 'baridimob') {
+      updates.baridiMobInfo = {
+        fullName: ADMIN_PAYMENT_INFO.fullName,
+        wilaya: ADMIN_PAYMENT_INFO.wilaya,
+        rip: ADMIN_PAYMENT_INFO.rip,
+        ccp: ADMIN_PAYMENT_INFO.ccp,
+        key: ADMIN_PAYMENT_INFO.key
+      }
       setShowBaridiMobInfo(true)
     } else {
+      updates.baridiMobInfo = undefined
       setShowBaridiMobInfo(false)
-      setPaymentReceipt(null)
-      setReceiptUploaded(false)
+      // Clear pending receipt when switching away from BaridiMob
+      if (onPendingReceiptChange) {
+        onPendingReceiptChange(null)
+      }
     }
+    
+    onChange(updates)
   }
 
   // Copy to clipboard handler
@@ -128,7 +155,8 @@ export const PaymentStep = ({ formData, errors, translations: t, onChange }: Pay
     }
   }
 
-  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ✅ DEFERRED MODE: Just store the file, don't upload yet
+  const handleReceiptSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -145,52 +173,9 @@ export const PaymentStep = ({ formData, errors, translations: t, onChange }: Pay
       return
     }
 
-    setPaymentReceipt(file)
-
-    // Upload to Google Drive
-    try {
-      setIsUploadingReceipt(true)
-      
-      const uploadFormData = new FormData()
-      uploadFormData.append('file', file)
-      uploadFormData.append('folder', formData.driveFolder?.name || '')
-      uploadFormData.append('folderId', formData.driveFolder?.id || '')
-      
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: uploadFormData
-      })
-
-      if (!response.ok) {
-        throw new Error('Échec du téléversement du reçu')
-      }
-
-      const result = await response.json()
-      
-      if (result.success) {
-        setReceiptUploaded(true)
-        
-        // Update form data with receipt info
-        onChange({
-          paymentReceipt: {
-            fileId: result.fileId,
-            url: result.url,
-            downloadUrl: result.downloadUrl,
-            name: file.name,
-            size: file.size.toString(),
-            type: file.type
-          }
-        })
-      } else {
-        throw new Error(result.error || 'Échec du téléversement')
-      }
-      
-    } catch (error) {
-      console.error('❌ Erreur upload reçu:', error)
-      alert('Erreur lors du téléversement du reçu. Veuillez réessayer.')
-      setPaymentReceipt(null)
-    } finally {
-      setIsUploadingReceipt(false)
+    // Store the file in pending files (deferred upload)
+    if (onPendingReceiptChange) {
+      onPendingReceiptChange(file)
     }
   }
 
@@ -241,32 +226,49 @@ export const PaymentStep = ({ formData, errors, translations: t, onChange }: Pay
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-          <PaymentOption
-            id="cib"
-            title={t.payment.cib}
-            description={t.payment.descriptions.cib}
-            icon={
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </div>
-            }
-            selected={formData.paymentMethod === 'cib'}
-            onClick={() => selectPaymentMethod('cib')}
-          />
+          {/* CIB - Disabled for now */}
+          <div className="relative">
+            <div className="opacity-50 pointer-events-none">
+              <PaymentOption
+                id="cib"
+                title={t.payment.cib}
+                description={t.payment.descriptions.cib}
+                icon={
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-400 rounded-lg flex items-center justify-center">
+                    <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                  </div>
+                }
+                selected={false}
+                onClick={() => {}}
+              />
+            </div>
+            <div className="absolute top-2 right-2 bg-gray-600 text-white text-xs px-2 py-1 rounded-full">
+              Bientôt disponible
+            </div>
+          </div>
 
-          <PaymentOption
-            id="edahabia"
-            title={t.payment.edahabia}
-            description={t.payment.descriptions.edahabia}
-            icon={
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-600 rounded-lg flex items-center justify-center">
-                <Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-              </div>
-            }
-            selected={formData.paymentMethod === 'edahabia'}
-            onClick={() => selectPaymentMethod('edahabia')}
-          />
+          {/* Edahabia - Disabled for now */}
+          <div className="relative">
+            <div className="opacity-50 pointer-events-none">
+              <PaymentOption
+                id="edahabia"
+                title={t.payment.edahabia}
+                description={t.payment.descriptions.edahabia}
+                icon={
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-400 rounded-lg flex items-center justify-center">
+                    <Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                  </div>
+                }
+                selected={false}
+                onClick={() => {}}
+              />
+            </div>
+            <div className="absolute top-2 right-2 bg-gray-600 text-white text-xs px-2 py-1 rounded-full">
+              Bientôt disponible
+            </div>
+          </div>
 
+          {/* BaridiMob - Active */}
           <PaymentOption
             id="baridimob"
             title="CCP / BARIDI MOB"
@@ -460,7 +462,7 @@ export const PaymentStep = ({ formData, errors, translations: t, onChange }: Pay
                       <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={handleReceiptUpload}
+                        onChange={handleReceiptSelect}
                         className="hidden"
                         id="receipt-upload"
                       />
@@ -470,21 +472,19 @@ export const PaymentStep = ({ formData, errors, translations: t, onChange }: Pay
                       >
                         <Upload className="h-5 w-5 text-orange-600" />
                         <span className="text-sm font-medium text-orange-700">
-                          {isUploadingReceipt 
-                            ? 'جاري التحميل... / Téléversement...' 
-                            : paymentReceipt 
-                            ? paymentReceipt.name 
+                          {receiptFile 
+                            ? `✓ ${receiptFile.name}` 
                             : 'انقر للتحميل / Cliquez pour téléverser'}
                         </span>
                       </label>
                     </label>
 
-                    {receiptUploaded && (
+                    {receiptFile && (
                       <Alert className="bg-green-50 border-green-200">
                         <CheckCircle className="h-4 w-4 text-green-600" />
                         <AlertDescription className="text-green-800 space-y-1">
-                          <p className="font-medium">✅ تم تحميل الإيصال بنجاح</p>
-                          <p className="text-sm">✅ Reçu téléversé avec succès</p>
+                          <p className="font-medium">✅ تم اختيار الإيصال - سيتم تحميله عند الإرسال</p>
+                          <p className="text-sm">✅ Reçu sélectionné - sera téléversé lors de l'envoi</p>
                         </AlertDescription>
                       </Alert>
                     )}

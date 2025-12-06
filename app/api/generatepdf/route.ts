@@ -5,7 +5,7 @@ import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import puppeteer from "puppeteer";
 import mammoth from "mammoth";
-import { getAmountByOffer } from "../register/route";
+import { getAmountByOffer } from "@/lib/utils/pricing";
 
 // Fonction pour convertir DOCX en PDF via HTML
 async function convertDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
