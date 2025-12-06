@@ -1,0 +1,184 @@
+// components/forms/shared/FileUpload.tsx
+import { useState } from 'react'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Upload, Check, Eye, Trash2, Download } from 'lucide-react'
+import { toast } from 'sonner'
+import { DocumentType, UploadedFile } from '@/lib/types/form'
+import { useFileUpload } from '@/hooks/useFileUpload'
+import { LoadingOverlay } from '@/components/common/LoadingOverlay'
+
+interface FileUploadProps {
+  label: string
+  field: DocumentType
+  icon: React.ReactNode
+  file: UploadedFile | null
+  clientFolder: string
+  clientFolderId?: string // ✅ AJOUTER L'ID DU DOSSIER
+  onFolderCreated: (folderId: string) => void // ✅ CALLBACK POUR L'ID
+  onChange: (file: UploadedFile | null) => void
+  disabled?: boolean
+}
+
+export const FileUpload = ({
+  label,
+  field,
+  icon,
+  file,
+  clientFolder,
+  clientFolderId, // ✅ RECEVOIR L'ID DU DOSSIER
+  onFolderCreated, // ✅ CALLBACK POUR SAUVEGARDER L'ID
+  onChange,
+  disabled = false
+}: FileUploadProps) => {
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const { isUploading, uploadFile, deleteFile } = useFileUpload()
+
+  const handleFileChange = async (selectedFile: File | null) => {
+    if (!selectedFile || disabled) return
+
+    setUploadError(null)
+
+    // ✅ UTILISER LE DOSSIER CLIENT ET SON ID
+    const uploadResult = await uploadFile(selectedFile, field, clientFolder, clientFolderId)
+
+    if (uploadResult) {
+      onChange(uploadResult.file)
+
+      // ✅ SAUVEGARDER L'ID DU DOSSIER SI C'EST LE PREMIER UPLOAD
+      if (uploadResult.folderId && !clientFolderId) {
+        onFolderCreated(uploadResult.folderId)
+      }
+    } else {
+      setUploadError('Erreur lors de l\'upload')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!file?.fileId) return
+
+    const success = await deleteFile(file.fileId)
+    if (success) {
+      onChange(null)
+      setUploadError(null)
+    }
+  }
+
+  const openInGoogleDrive = () => {
+    if (file?.url) {
+      window.open(file.url, '_blank')
+    }
+  }
+
+  const downloadFile = () => {
+    if (file?.downloadUrl) {
+      window.open(file.downloadUrl, '_blank')
+    }
+  }
+
+  const inputId = `${field}-upload`
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={inputId} className="font-semibold text-base sm:text-lg flex items-center gap-2">
+        {icon}
+        {label}
+      </Label>
+
+      <label
+        htmlFor={inputId}
+        className={`block cursor-pointer border-2 border-dashed border-gray-300 rounded-lg p-4 sm:p-6 text-center hover:border-nch-primary transition-colors ${disabled ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+      >
+        {!file ? (
+          <>
+            {isUploading ? (
+              <div className="flex flex-col items-center justify-center">
+                <LoadingOverlay />
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nch-primary" />
+                <p className="mt-2 text-sm text-gray-600">Upload vers Google Drive...</p>
+              </div>
+            ) : (
+              <>
+                <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
+                <p className="mt-2 text-xs sm:text-sm text-gray-600">Cliquez pour télécharger</p>
+                <p className="text-xs text-gray-500">PDF, JPG, PNG (max. 10MB)</p>
+                <p className="text-xs text-blue-500 mt-1">📁 Stockage Google Drive</p>
+              </>
+            )}
+          </>
+        ) : (
+          <div className="space-y-3">
+            <Check className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-green-500" />
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-sm text-green-600 font-medium break-all">
+                {file.name}
+              </p>
+              <p className="text-xs text-gray-500">
+                Taille: {(file.size / 1024 / 1024).toFixed(2)} MB
+              </p>
+              <p className="text-xs text-blue-500">📁 Stocké sur Google Drive</p>
+
+              <div className="flex items-center gap-2 mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    openInGoogleDrive()
+                  }}
+                  className="p-2"
+                  title="Voir dans Google Drive"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    downloadFile()
+                  }}
+                  className="p-2"
+                  title="Télécharger"
+                >
+                  <Download className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleDelete()
+                  }}
+                  className="p-2 hover:bg-red-50"
+                  title="Supprimer"
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <input
+          type="file"
+          id={inputId}
+          className="hidden"
+          accept=".pdf,.jpg,.jpeg,.png"
+          onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+          disabled={isUploading || disabled}
+        />
+      </label>
+
+      {uploadError && (
+        <p className="text-xs text-red-500 text-center">{uploadError}</p>
+      )}
+    </div>
+  )
+}

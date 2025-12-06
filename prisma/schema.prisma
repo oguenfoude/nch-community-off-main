@@ -1,0 +1,159 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ✅ Modèle Client - UPDATED with payment tracking
+model Client {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  firstName         String
+  lastName          String
+  email             String   @unique
+  phone             String
+  wilaya            String
+  diploma           String
+  selectedOffer     String
+  paymentMethod     String
+  
+  // ✅ Payment tracking fields
+  paymentType       String?  @default("partial") // 'full' or 'partial'
+  paymentStatus     String?  @default("unpaid")  // 'unpaid', 'pending', 'partially_paid', 'paid'
+  totalAmount       Float?   // Total price for the offer
+  paidAmount        Float?   @default(0) // Amount already paid
+  remainingAmount   Float?   // Amount still owed
+  
+  // ✅ BaridiMob account information
+  baridiMobInfo     Json?    // Stores: { fullName, wilaya, rip, ccp, key }
+  paymentReceipt    Json?    // Stores receipt file info for BaridiMob
+  
+  selectedCountries String[]
+  documents         Json
+  driveFolder       Json
+  password          String
+  status            String   @default("pending")
+  
+  // ✅ Relation to ClientStage
+  stages            ClientStage[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("clients")
+}
+
+// ✅ Modèle Admin
+model Admin {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  email     String    @unique
+  password  String
+  name      String
+  role      AdminRole @default(ADMIN)
+  isActive  Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("admins")
+}
+
+// ✅ Modèle PendingRegistration
+model PendingRegistration {
+  id               String                    @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken     String                    @unique
+  registrationData Json
+  paymentDetails   Json?
+  status           PendingRegistrationStatus @default(pending)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  expiresAt        DateTime?
+
+  @@index([createdAt])
+  @@map("pendingregistrations")
+}
+
+// ✅ Modèle ClientStage
+model ClientStage {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  clientId           String   @db.ObjectId
+  stageNumber        Int
+  stageName          String
+  status             String   @default("not_started") // not_started, in_progress, pending_review, completed
+  requiredDocuments  String[]
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  client             Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, stageNumber])
+  @@map("client_stages")
+}
+
+// ✅ Types composés pour documents
+type ClientDocuments {
+  id               DocumentFile?
+  diploma          DocumentFile?
+  workCertificate  DocumentFile?
+  photo            DocumentFile?
+}
+
+type DocumentFile {
+  fileId      String
+  url         String
+  downloadUrl String
+  name        String
+  size        String
+}
+
+type DriveFolder {
+  name String
+  id   String?
+}
+
+// ✅ Enums
+enum OfferType {
+  basic
+  premium
+  gold
+}
+
+enum PaymentMethod {
+  cib
+  edahabia
+  baridimob
+}
+
+enum ClientStatus {
+  pending
+  processing
+  approved
+  rejected
+  completed
+}
+
+enum PaymentStatus {
+  unpaid
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum AdminRole {
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PendingRegistrationStatus {
+  pending
+  paid
+  expired
+  completed
+  failed
+  pending_verification
+}
