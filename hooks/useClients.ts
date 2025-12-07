@@ -145,7 +145,7 @@ export function useClients(): UseClientsReturn {
 
         // Mettre à jour la liste locale
         setClients((prev) =>
-          prev.map((client) => (client._id === id ? updatedClient : client))
+          prev.map((client) => (client.id === id ? updatedClient : client))
         )
 
         return updatedClient
@@ -175,7 +175,7 @@ export function useClients(): UseClientsReturn {
         }
 
         // Mettre à jour la liste locale
-        setClients((prev) => prev.filter((client) => client._id !== id))
+        setClients((prev) => prev.filter((client) => client.id !== id))
 
         // Mettre à jour le total
         setPagination((prev) => ({

@@ -34,6 +34,8 @@ function getDocumentUrl(doc: any): string {
     if (!doc) return ''
     
     let url = ''
+    let fileType = 'file'
+    
     if (typeof doc === 'string') {
         url = doc
     } else if (doc.url) {
@@ -51,10 +53,28 @@ function getDocumentUrl(doc: any): string {
     
     if (!url) return ''
     
+    // Detect file type from URL or doc object
+    const isPdf = (doc.type && doc.type.includes('pdf')) || 
+                  url.includes('/raw/') || 
+                  url.toLowerCase().includes('.pdf')
+    
+    if (isPdf) {
+        fileType = 'PDF'
+    } else if ((doc.type && doc.type.includes('image')) || url.includes('/image/')) {
+        fileType = 'IMG'
+    }
+    
+    // For PDFs, use Google Docs Viewer for preview instead of direct download
+    let linkUrl = url
+    if (isPdf) {
+        linkUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
+    }
+    
     // Return as HYPERLINK formula for clickable link in Google Sheets
-    // Escape double quotes in URL
-    const escapedUrl = url.replace(/"/g, '""')
-    return `=HYPERLINK("${escapedUrl}", "📄 Voir")`
+    // Show file type icon for clarity
+    const escapedUrl = linkUrl.replace(/"/g, '""')
+    const icon = fileType === 'PDF' ? '📄' : fileType === 'IMG' ? '🖼️' : '📎'
+    return `=HYPERLINK("${escapedUrl}", "${icon} ${fileType}")`
 }
 
 /**

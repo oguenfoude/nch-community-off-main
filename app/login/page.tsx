@@ -201,7 +201,7 @@ export default function ClientLogin() {
                                 </Link>
                                 <br />
                                 <Link
-                                    href="/admin/login"
+                                    href="/admin/"
                                     className="text-gray-400 hover:underline mt-2 inline-block text-xs"
                                 >
                                     Accès administrateur

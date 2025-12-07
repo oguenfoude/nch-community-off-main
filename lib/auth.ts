@@ -1,4 +1,4 @@
-import { NextAuthOptions } from "next-auth"
+import type { NextAuthOptions } from "next-auth"
 import type { User } from "next-auth"
 import type { JWT } from "next-auth/jwt"
 import CredentialsProvider from "next-auth/providers/credentials"
@@ -7,34 +7,8 @@ import { prisma } from "./prisma"
 import { adminHelpers } from "./prisma"
 import { NextRequest } from "next/server"
 
-// Types étendus pour NextAuth
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string
-      email: string
-      name: string
-      role: string
-      userType: 'admin' | 'client'
-    }
-  }
-
-  interface User {
-    id: string
-    email: string
-    name: string
-    role: string
-    userType: 'admin' | 'client'
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    role: string
-    userId: string
-    userType: 'admin' | 'client'
-  }
-}
+// Note: Type augmentations for NextAuth are in types/next-auth.d.ts
+// Do not duplicate them here to avoid conflicts
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -181,7 +155,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }: { session: import("next-auth").Session; token: JWT }) {
       if (token && session.user) {
-        session.user.id = token.userId
+        session.user.id = token.userId || token.id || ''
         session.user.role = token.role
         session.user.userType = token.userType
       }
@@ -197,8 +171,8 @@ export const authOptions: NextAuthOptions = {
     },
   },
   pages: {
-    // ✅ Ne pas définir signIn pour permettre les pages personnalisées
-    error: "/login",
+    signIn: "/login",
+    error: "/error",
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",

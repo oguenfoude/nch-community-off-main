@@ -8,36 +8,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ✅ Modèle Client - UPDATED with payment tracking
+// ============================================
+// CLIENT MODEL - Profile only (payment moved to Payment model)
+// ============================================
 model Client {
   id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Profile
   firstName         String
   lastName          String
   email             String   @unique
   phone             String
   wilaya            String
   diploma           String
-  selectedOffer     String
-  paymentMethod     String
+  password          String   // Plain text for MVP
   
-  // ✅ Payment tracking fields
-  paymentType       String?  @default("partial") // 'full' or 'partial'
-  paymentStatus     String?  @default("unpaid")  // 'unpaid', 'pending', 'partially_paid', 'paid'
-  totalAmount       Float?   // Total price for the offer
-  paidAmount        Float?   @default(0) // Amount already paid
-  remainingAmount   Float?   // Amount still owed
-  
-  // ✅ BaridiMob account information
-  baridiMobInfo     Json?    // Stores: { fullName, wilaya, rip, ccp, key }
-  paymentReceipt    Json?    // Stores receipt file info for BaridiMob
-  
+  // Subscription
+  selectedOffer     String   // basic, premium, gold
   selectedCountries String[]
+  
+  // Documents
   documents         Json
-  driveFolder       Json
-  password          String
+  driveFolder       Json?
+  
+  // Status
   status            String   @default("pending")
   
-  // ✅ Relation to ClientStage
+  // Relations
+  payments          Payment[]
   stages            ClientStage[]
   
   createdAt         DateTime @default(now())
@@ -46,7 +44,44 @@ model Client {
   @@map("clients")
 }
 
-// ✅ Modèle Admin
+// ============================================
+// PAYMENT MODEL - Tracks all payments per client
+// ============================================
+model Payment {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  
+  // Relation to Client
+  clientId          String   @db.ObjectId
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  // Payment details
+  paymentType       String   // 'initial' or 'second'
+  paymentMethod     String   // 'cib', 'edahabia', 'baridimob'
+  amount            Float
+  status            String   @default("pending") // pending, verified, failed
+  
+  // BaridiMob specific
+  baridiMobInfo     Json?    // { fullName, wilaya, rip, ccp, key }
+  receiptUrl        String?  // Cloudinary URL
+  
+  // SofizPay specific
+  transactionId     String?
+  sofizpayResponse  Json?
+  
+  // Admin verification
+  verifiedBy        String?  @db.ObjectId
+  verifiedAt        DateTime?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([clientId])
+  @@map("payments")
+}
+
+// ============================================
+// ADMIN MODEL
+// ============================================
 model Admin {
   id        String    @id @default(auto()) @map("_id") @db.ObjectId
   email     String    @unique
@@ -61,22 +96,33 @@ model Admin {
   @@map("admins")
 }
 
-// ✅ Modèle PendingRegistration
+// ============================================
+// PENDING REGISTRATION - For CIB/Edahabia/BaridiMob awaiting completion
+// ============================================
 model PendingRegistration {
-  id               String                    @id @default(auto()) @map("_id") @db.ObjectId
-  sessionToken     String                    @unique
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken     String   @unique
+  
+  // Client data stored as JSON until approved
   registrationData Json
   paymentDetails   Json?
-  status           PendingRegistrationStatus @default(pending)
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
+  
+  // Status: pending (card payment), pending_verification (baridimob), approved, rejected, expired
+  status           String   @default("pending")
+  rejectionReason  String?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
   expiresAt        DateTime?
 
   @@index([createdAt])
+  @@index([status])
   @@map("pendingregistrations")
 }
 
-// ✅ Modèle ClientStage
+// ============================================
+// CLIENT STAGE - Progress tracking
+// ============================================
 model ClientStage {
   id                 String   @id @default(auto()) @map("_id") @db.ObjectId
   clientId           String   @db.ObjectId
@@ -94,66 +140,10 @@ model ClientStage {
   @@map("client_stages")
 }
 
-// ✅ Types composés pour documents
-type ClientDocuments {
-  id               DocumentFile?
-  diploma          DocumentFile?
-  workCertificate  DocumentFile?
-  photo            DocumentFile?
-}
-
-type DocumentFile {
-  fileId      String
-  url         String
-  downloadUrl String
-  name        String
-  size        String
-}
-
-type DriveFolder {
-  name String
-  id   String?
-}
-
-// ✅ Enums
-enum OfferType {
-  basic
-  premium
-  gold
-}
-
-enum PaymentMethod {
-  cib
-  edahabia
-  baridimob
-}
-
-enum ClientStatus {
-  pending
-  processing
-  approved
-  rejected
-  completed
-}
-
-enum PaymentStatus {
-  unpaid
-  pending
-  paid
-  failed
-  refunded
-}
-
+// ============================================
+// ENUMS
+// ============================================
 enum AdminRole {
   ADMIN
   SUPER_ADMIN
-}
-
-enum PendingRegistrationStatus {
-  pending
-  paid
-  expired
-  completed
-  failed
-  pending_verification
 }

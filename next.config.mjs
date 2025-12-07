@@ -21,12 +21,57 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cloudinary.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 
-  // Configuration pour les téléchargements
+  // Configuration CORS et headers de sécurité
   async headers() {
     return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control',
+          },
+          {
+            key: 'Access-Control-Max-Age',
+            value: '86400',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+        ],
+      },
       {
         source: '/api/download',
         headers: [

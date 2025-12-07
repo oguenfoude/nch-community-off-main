@@ -7,9 +7,10 @@ interface QuickActionsProps {
     clients: Client[]
     onRefresh: () => void
     onAddClient: () => void
+    isRefreshing?: boolean
 }
 
-export default function QuickActions({ clients, onRefresh, onAddClient }: QuickActionsProps) {
+export default function QuickActions({ clients, onRefresh, onAddClient, isRefreshing }: QuickActionsProps) {
     const handleExportCSV = () => {
         const csvContent = "data:text/csv;charset=utf-8," +
             ["Prénom,Nom,Email,Téléphone,Wilaya,Diplôme,Offre,Statut,Date"].concat(

@@ -127,7 +127,22 @@ function SuccessContent() {
 
     const copyToClipboard = async (text: string, field: string) => {
         try {
-            await navigator.clipboard.writeText(text)
+            // Check if clipboard API is available
+            if (navigator?.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text)
+            } else {
+                // Fallback for older browsers or insecure contexts
+                const textArea = document.createElement('textarea')
+                textArea.value = text
+                textArea.style.position = 'fixed'
+                textArea.style.left = '-999999px'
+                textArea.style.top = '-999999px'
+                document.body.appendChild(textArea)
+                textArea.focus()
+                textArea.select()
+                document.execCommand('copy')
+                document.body.removeChild(textArea)
+            }
             setCopiedField(field)
             toast.success(t.copied)
             setTimeout(() => setCopiedField(null), 2000)

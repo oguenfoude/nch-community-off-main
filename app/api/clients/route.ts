@@ -53,6 +53,11 @@ export async function GET(request: NextRequest) {
         orderBy,
         skip,
         take: limit,
+        include: {
+          payments: {
+            orderBy: { createdAt: 'desc' }
+          }
+        }
       }),
       prisma.client.count({ where })
     ])
@@ -61,9 +66,36 @@ export async function GET(request: NextRequest) {
     const totalPages = Math.ceil(totalCount / limit)
     const hasNextPage = page < totalPages
     const hasPrevPage = page > 1
-    console.log("clients", clients)
+
+    // ✅ Enrichir les clients avec les informations de paiement
+    const enrichedClients = clients.map(client => {
+      const payments = client.payments || []
+      const totalPaid = payments.filter(p => p.status === 'verified' || p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
+      const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0)
+      const hasPayments = payments.length > 0
+      
+      let paymentStatus = 'unpaid'
+      if (totalPaid > 0 && totalPending === 0) {
+        paymentStatus = 'paid'
+      } else if (totalPaid > 0 && totalPending > 0) {
+        paymentStatus = 'partially_paid'
+      } else if (totalPending > 0) {
+        paymentStatus = 'pending'
+      }
+
+      return {
+        ...client,
+        paymentStatus,
+        paymentMethod: payments[0]?.paymentMethod || null,
+        totalAmount: totalPaid + totalPending,
+        paidAmount: totalPaid,
+        remainingAmount: totalPending
+      }
+    })
+
+    console.log("clients enriched with payment info")
     return NextResponse.json({
-      clients,
+      clients: enrichedClients,
       currentPage: page,
       totalPages,
       total: totalCount,
@@ -118,10 +150,10 @@ export async function POST(request: NextRequest) {
         phone: body.phone,
         wilaya: body.wilaya,
         diploma: body.diploma,
+        password: body.password || 'TEMP_PASSWORD', // Plain text for MVP
         selectedOffer: body.selectedOffer,
-        paymentMethod: body.paymentMethod,
+        // Note: paymentMethod/paymentStatus now on Payment model
         status: body.status || 'pending',
-        paymentStatus: body.paymentStatus || 'unpaid',
         selectedCountries: body.selectedCountries || [],
         driveFolder: body.driveFolder ? {
           name: body.driveFolder.name,
