@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         if (isSecondPayment && clientId) {
             const client = await prisma.client.findUnique({
                 where: { id: clientId },
-                include: { stages: true }
+                include: { stages: true, payments: true }
             })
 
             if (!client) {
@@ -120,10 +120,14 @@ export async function POST(request: NextRequest) {
                 }, { status: 404 })
             }
 
-            if (client.paymentStatus !== 'partially_paid') {
+            // Check if first payment is completed (client should have exactly 1 completed payment)
+            const completedPayments = client.payments?.filter(p => p.status === 'completed') || []
+            const hasFirstPaymentOnly = completedPayments.length === 1 && completedPayments[0].paymentType === 'initial'
+            
+            if (!hasFirstPaymentOnly) {
                 return NextResponse.json({ 
                     success: false, 
-                    error: 'Second payment not required. Payment status: ' + client.paymentStatus 
+                    error: 'Second payment not required or already completed.' 
                 }, { status: 400 })
             }
 

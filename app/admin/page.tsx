@@ -1,518 +1,363 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSession, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { XCircle, RefreshCw, Loader2, LogOut, User, Settings } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { RefreshCw, Loader2, LogOut, User, Users, CreditCard, Clock, CheckCircle, Search, Eye, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { useClients } from "@/hooks/useClients"
-import { useRouter } from "next/navigation"
-
-// Components
-import ClientForm from "@/components/admin/ClientForm"
-import StatsCards from "@/components/admin/StatsCards"
-import ClientTable from "@/components/admin/ClientTable"
-import ClientDetails from "@/components/admin/ClientDetails"
-import QuickActions from "@/components/admin/QuickActions"
-
-// Types
 import type { Client } from "@/lib/types"
 
-export default function AdminDashboard() {
-  const { data: session, status } = useSession()
+export default function AdminPage() {
   const router = useRouter()
+  const { data: session, status } = useSession()
+  const { clients, loading, error, pagination, fetchClients, deleteClient } = useClients()
 
-  const {
-    clients,
-    loading,
-    error,
-    pagination,
-    fetchClients,
-    createClient,
-    updateClient,
-    deleteClient,
-  } = useClients()
-
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all")
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingClient, setEditingClient] = useState<Client | null>(null)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [paymentFilter, setPaymentFilter] = useState("all")
   const [currentPage, setCurrentPage] = useState(1)
-  const [isUploading, setIsUploading] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [deletingId, setDeletingId] = useState("")
 
-  // ✅ États de chargement pour les différentes actions
-  const [loadingStates, setLoadingStates] = useState({
-    adding: false,
-    editing: false,
-    deleting: '',
-    statusUpdate: '',
-    paymentStatusUpdate: '',
-    refreshing: false
-  })
-
-  // ✅ Vérifier l'authentification
   useEffect(() => {
-    if (status === "loading") return // Encore en cours de chargement
-
     if (status === "unauthenticated") {
-      router.push("/admin/login")
-      return
-    }
-
-    if (session?.user && (session.user.role !== "ADMIN" && session.user.role !== "SUPER_ADMIN")) {
-      toast.error("Accès non autorisé")
-      router.push("/admin/login")
-      return
+      router.replace("/admin/login")
+    } else if (status === "authenticated") {
+      const role = session?.user?.role
+      if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
+        router.replace("/admin/login")
+      }
     }
   }, [status, session, router])
 
-  // ✅ Fonction de déconnexion
-  const handleLogout = async () => {
+  const loadClients = useCallback(async () => {
+    setIsRefreshing(true)
     try {
-      setIsLoggingOut(true)
-
-      // Afficher une confirmation
-      const confirmed = window.confirm("Êtes-vous sûr de vouloir vous déconnecter ?")
-      if (!confirmed) {
-        setIsLoggingOut(false)
-        return
-      }
-
-      toast.info("Déconnexion en cours...")
-
-      // Déconnexion avec NextAuth
-      await signOut({
-        callbackUrl: "/admin/login", // Redirection après déconnexion
-        redirect: true
-      })
-
-    } catch (error) {
-      console.error("Erreur lors de la déconnexion:", error)
-      toast.error("Erreur lors de la déconnexion")
-      setIsLoggingOut(false)
-    }
-  }
-
-  // ✅ Fonction utilitaire pour gérer les états de chargement
-  const setLoadingState = (key: keyof typeof loadingStates, value: string | boolean) => {
-    setLoadingStates(prev => ({ ...prev, [key]: value }))
-  }
-
-  // Charger les clients au montage du composant
-  useEffect(() => {
-    if (session?.user) {
-      handleFetchClients()
-    }
-  }, [currentPage, searchTerm, statusFilter, paymentStatusFilter, session])
-
-  const handleFetchClients = async () => {
-    setLoadingState('refreshing', true)
-    try {
-      const params = {
+      await fetchClients({
         page: currentPage,
-        limit: 10,
+        limit: 15,
         ...(searchTerm && { search: searchTerm }),
         ...(statusFilter !== "all" && { status: statusFilter }),
-        ...(paymentStatusFilter !== "all" && { paymentStatus: paymentStatusFilter }),
-      }
-      await fetchClients(params)
-    } finally {
-      setLoadingState('refreshing', false)
-    }
-  }
-
-  const handleDeleteClient = async (clientId: string) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce client ?")) {
-      setLoadingState('deleting', clientId)
-      try {
-        await deleteClient(clientId)
-        toast.success("Client supprimé avec succès")
-        handleFetchClients()
-        if (selectedClient?.id === clientId) {
-          setSelectedClient(null)
-        }
-      } catch (error: any) {
-        toast.error(error.message || "Erreur lors de la suppression")
-      } finally {
-        setLoadingState('deleting', '')
-      }
-    }
-  }
-
-  const handleStatusChange = async (clientId: string, newStatus: Client["status"]) => {
-    setLoadingState('statusUpdate', clientId)
-    try {
-      await updateClient(clientId, { status: newStatus })
-      toast.success("Statut mis à jour avec succès")
-      handleFetchClients()
-      if (selectedClient?.id === clientId) {
-        setSelectedClient({ ...selectedClient, status: newStatus })
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Erreur lors de la mise à jour")
-    } finally {
-      setLoadingState('statusUpdate', '')
-    }
-  }
-
-  const handlePaymentStatusChange = async (clientId: string, newPaymentStatus: Client["paymentStatus"]) => {
-    setLoadingState('paymentStatusUpdate', clientId)
-    try {
-      await updateClient(clientId, { paymentStatus: newPaymentStatus })
-      toast.success("Statut de paiement mis à jour")
-      handleFetchClients()
-    } catch (error: any) {
-      console.error("Erreur lors de la mise à jour du statut de paiement:", error)
-      toast.error("Erreur lors de la mise à jour")
-    } finally {
-      setLoadingState('paymentStatusUpdate', '')
-    }
-  }
-
-  const handleAddClient = async (newClientData: any) => {
-    setLoadingState('adding', true)
-    try {
-      await createClient(newClientData)
-      toast.success("Client ajouté avec succès")
-      setIsAddDialogOpen(false)
-      handleFetchClients()
-    } catch (error: any) {
-      toast.error(error.message || "Erreur lors de l'ajout")
-    } finally {
-      setLoadingState('adding', false)
-    }
-  }
-
-  const handleEditClient = async (updatedClient: Client) => {
-    setLoadingState('editing', true)
-    try {
-      await updateClient(updatedClient.id, updatedClient)
-      toast.success("Client modifié avec succès")
-      setIsEditDialogOpen(false)
-      setEditingClient(null)
-      handleFetchClients()
-      if (selectedClient?.id === updatedClient.id) {
-        setSelectedClient(updatedClient)
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Erreur lors de la modification")
-    } finally {
-      setLoadingState('editing', false)
-    }
-  }
-
-  const handleDocumentUpload = async (clientId: string, documentType: string, file: File) => {
-    try {
-      setIsUploading(true)
-
-      // Upload direct vers Google Drive via votre API
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("documentType", documentType)
-
-      // Upload direct vers Google Drive via l'API documents
-      const response = await fetch(`/api/clients/${clientId}/documents`, {
-        method: "POST",
-        body: formData,
+        ...(paymentFilter !== "all" && { paymentStatus: paymentFilter }),
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Erreur lors de l'upload")
-      }
-
-      const result = await response.json()
-
-      toast.success("Document uploadé avec succès")
-      handleFetchClients()
-
-      // Mettre à jour le client sélectionné
-      if (selectedClient?.id === clientId) {
-        setSelectedClient({
-          ...selectedClient,
-          documents: {
-            ...selectedClient.documents,
-            [documentType]: result.url,
-          },
-        })
-      }
-
-      return result
-
-    } catch (error: any) {
-      console.error('Erreur upload document:', error)
-      toast.error(error.message || "Erreur lors de l'upload")
     } finally {
-      setIsUploading(false)
+      setIsRefreshing(false)
+    }
+  }, [currentPage, searchTerm, statusFilter, paymentFilter, fetchClients])
+
+  useEffect(() => {
+    if (session?.user) loadClients()
+  }, [session, loadClients])
+
+  async function handleLogout() {
+    if (!confirm("Voulez-vous vous déconnecter ?")) return
+    await signOut({ callbackUrl: "/admin/login" })
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Supprimer ce client ?")) return
+    setDeletingId(id)
+    try {
+      await deleteClient(id)
+      toast.success("Client supprimé")
+      loadClients()
+    } catch {
+      toast.error("Erreur")
+    } finally {
+      setDeletingId("")
     }
   }
 
-  const handleDocumentDelete = async (clientId: string, documentType: string) => {
-    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce document ?")) {
-      try {
-        const response = await fetch(`/api/clients/${clientId}/documents?type=${documentType}`, {
-          method: "DELETE",
-        })
-
-        if (!response.ok) {
-          throw new Error("Erreur lors de la suppression du document")
-        }
-
-        toast.success("Document supprimé avec succès")
-        handleFetchClients()
-
-        // Mettre à jour le client sélectionné
-        if (selectedClient?.id === clientId) {
-          const updatedDocuments = { ...selectedClient.documents }
-          delete updatedDocuments[documentType as keyof typeof updatedDocuments]
-          setSelectedClient({
-            ...selectedClient,
-            documents: updatedDocuments,
-          })
-        }
-      } catch (error: any) {
-        toast.error(error.message || "Erreur lors de la suppression")
-      }
-    }
+  function viewClient(id: string) {
+    router.push(`/admin/clients/${id}`)
   }
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
+  const stats = {
+    total: pagination.total || 0,
+    pending: clients.filter(c => c.status === "pending").length,
+    paid: clients.filter(c => c.paymentStatus === "paid").length,
+    completed: clients.filter(c => c.status === "completed").length,
   }
 
-  // ✅ Affichage de chargement pendant l'authentification
+  const statusLabels: Record<string, { label: string; color: string }> = {
+    pending: { label: "En attente", color: "bg-yellow-100 text-yellow-700" },
+    in_progress: { label: "En cours", color: "bg-blue-100 text-blue-700" },
+    completed: { label: "Complété", color: "bg-green-100 text-green-700" },
+    cancelled: { label: "Annulé", color: "bg-red-100 text-red-700" },
+  }
+
+  const paymentLabels: Record<string, { label: string; color: string }> = {
+    pending: { label: "En attente", color: "bg-yellow-100 text-yellow-700" },
+    partial: { label: "Partiel", color: "bg-orange-100 text-orange-700" },
+    paid: { label: "Payé", color: "bg-green-100 text-green-700" },
+    refunded: { label: "Remboursé", color: "bg-gray-100 text-gray-700" },
+  }
+
+  const offerLabels: Record<string, string> = { basic: "Basic", premium: "Premium", gold: "Gold" }
+
   if (status === "loading") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="p-6">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-nch-primary mx-auto mb-4" />
-            <p className="text-gray-700">Vérification de l'authentification...</p>
-          </div>
-        </Card>
+        <Loader2 className="h-10 w-10 animate-spin text-[#042d8e]" />
       </div>
     )
   }
 
-  // ✅ Si pas de session, ne pas afficher le dashboard
-  if (!session?.user) {
-    return null
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="p-6">
-          <div className="text-center">
-            <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Erreur</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <Button
-              onClick={handleFetchClients}
-              className="bg-nch-primary hover:bg-nch-primary-dark"
-              disabled={loadingStates.refreshing}
-            >
-              {loadingStates.refreshing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              {loadingStates.refreshing ? 'Chargement...' : 'Réessayer'}
-            </Button>
-          </div>
-        </Card>
-      </div>
-    )
-  }
+  if (!session?.user) return null
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-3">
-              <img src="/images/nch-logo.jpg" alt="NCH Community Logo" className="w-10 h-10 object-contain" />
-              <div>
-                <h1 className="text-2xl font-bold text-nch-primary">Dashboard Admin</h1>
-                <p className="text-gray-600">Gestion des clients NCH Community</p>
-              </div>
-            </div>
+      <header className="bg-white border-b sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Image src="/images/nch-logo.jpg" alt="NCH" width={36} height={36} className="rounded-lg" />
+            <h1 className="text-lg font-bold text-[#042d8e]">Admin NCH</h1>
+          </div>
 
-            {/* ✅ Menu utilisateur avec déconnexion */}
-            <div className="flex items-center space-x-2">
-              <Button
-                onClick={handleFetchClients}
-                variant="outline"
-                size="sm"
-                disabled={loadingStates.refreshing}
-              >
-                {loadingStates.refreshing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                {loadingStates.refreshing ? 'Actualisation...' : 'Actualiser'}
-              </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={loadClients} disabled={isRefreshing}>
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
 
-              <Button onClick={() => (window.location.href = "/")} variant="outline">
-                Retour au site
-              </Button>
-
-              {/* ✅ Menu déroulant utilisateur */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="flex items-center space-x-2">
-                    <User className="h-4 w-4" />
-                    <span className="hidden md:inline">{session.user.name}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-2 py-1.5 text-sm text-gray-700">
-                    <div className="font-medium">{session.user.name}</div>
-                    <div className="text-xs text-gray-500">{session.user.email}</div>
-                    <div className="text-xs text-nch-primary font-medium">{session.user.role}</div>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
-                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                  >
-                    {isLoggingOut ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <LogOut className="h-4 w-4 mr-2" />
-                    )}
-                    {isLoggingOut ? 'Déconnexion...' : 'Se déconnecter'}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <User className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">{session.user.name}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <div className="px-3 py-2 text-sm">
+                  <p className="font-medium">{session.user.name}</p>
+                  <p className="text-xs text-gray-500">{session.user.email}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Déconnexion
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
 
-      {/* ✅ Le reste du dashboard reste identique */}
-      <div className="container mx-auto px-4 py-8">
-        {/* Stats Cards */}
-        <StatsCards clients={clients} total={pagination.total} />
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Client Table */}
-          <ClientTable
-            clients={clients}
-            loading={loading}
-            pagination={pagination}
-            searchTerm={searchTerm}
-            statusFilter={statusFilter}
-            paymentStatusFilter={paymentStatusFilter}
-            currentPage={currentPage}
-            onSearchChange={setSearchTerm}
-            onStatusFilterChange={setStatusFilter}
-            onPaymentStatusFilterChange={setPaymentStatusFilter}
-            onPageChange={handlePageChange}
-            onSelect={setSelectedClient}
-            onEdit={(client) => {
-              setEditingClient(client)
-              setIsEditDialogOpen(true)
-            }}
-            onDelete={handleDeleteClient}
-            onAddClick={() => setIsAddDialogOpen(true)}
-            onPaymentStatusChange={handlePaymentStatusChange}
-            loadingStates={loadingStates}
-          />
-
-          {/* Client Details */}
-          <ClientDetails
-            selectedClient={selectedClient}
-            isUploading={isUploading}
-            onStatusChange={handleStatusChange}
-            onPaymentStatusChange={handlePaymentStatusChange}
-            onDocumentUpload={handleDocumentUpload}
-            onDocumentDelete={handleDocumentDelete}
-            loadingStates={loadingStates}
-          />
-        </div>
-
-        {/* Quick Actions */}
-        <QuickActions
-          clients={clients}
-          onRefresh={handleFetchClients}
-          onAddClient={() => setIsAddDialogOpen(true)}
-          isRefreshing={loadingStates.refreshing}
-        />
-
-        {/* Dialogs - garder tous les dialogs existants */}
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Ajouter un nouveau client</DialogTitle>
-              <DialogDescription>Remplissez les informations du nouveau client.</DialogDescription>
-            </DialogHeader>
-            <ClientForm
-              onSubmit={handleAddClient}
-              onCancel={() => setIsAddDialogOpen(false)}
-              isSubmitting={loadingStates.adding}
-            />
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Modifier le client</DialogTitle>
-              <DialogDescription>Modifiez les informations du client.</DialogDescription>
-            </DialogHeader>
-            <ClientForm
-              client={editingClient}
-              onSubmit={handleEditClient}
-              onCancel={() => {
-                setIsEditDialogOpen(false)
-                setEditingClient(null)
-              }}
-              isSubmitting={loadingStates.editing}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* ✅ Overlay de chargement global */}
-      {(loadingStates.adding || loadingStates.editing || isLoggingOut) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="p-6">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-nch-primary mx-auto mb-4" />
-              <p className="text-gray-700">
-                {loadingStates.adding && "Ajout du client en cours..."}
-                {loadingStates.editing && "Modification du client en cours..."}
-                {isLoggingOut && "Déconnexion en cours..."}
-              </p>
-            </div>
+      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Users className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-xs text-gray-500">Total</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 bg-yellow-100 rounded-lg">
+                <Clock className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.pending}</p>
+                <p className="text-xs text-gray-500">En attente</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CreditCard className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.paid}</p>
+                <p className="text-xs text-gray-500">Payés</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.completed}</p>
+                <p className="text-xs text-gray-500">Complétés</p>
+              </div>
+            </CardContent>
           </Card>
         </div>
-      )}
+
+        {/* Client List */}
+        <Card>
+          <CardContent className="p-4">
+            {/* Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Rechercher..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="pending">En attente</SelectItem>
+                  <SelectItem value="in_progress">En cours</SelectItem>
+                  <SelectItem value="completed">Complété</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Paiement" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="pending">En attente</SelectItem>
+                  <SelectItem value="partial">Partiel</SelectItem>
+                  <SelectItem value="paid">Payé</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Table */}
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-[#042d8e]" />
+              </div>
+            ) : clients.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                {searchTerm || statusFilter !== "all" || paymentFilter !== "all"
+                  ? "Aucun client trouvé"
+                  : "Aucun client enregistré"}
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Client</TableHead>
+                        <TableHead className="hidden md:table-cell">Contact</TableHead>
+                        <TableHead>Offre</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead className="hidden sm:table-cell">Paiement</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {clients.map((client) => (
+                        <TableRow key={client.id} className="hover:bg-gray-50">
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{client.firstName} {client.lastName}</p>
+                              <p className="text-xs text-gray-500">{client.wilaya}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <div className="text-sm">
+                              <p>{client.email}</p>
+                              <p className="text-gray-500">{client.phone}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {offerLabels[client.selectedOffer] || client.selectedOffer}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={statusLabels[client.status]?.color || "bg-gray-100"}>
+                              {statusLabels[client.status]?.label || client.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <Badge className={paymentLabels[client.paymentStatus]?.color || "bg-gray-100"}>
+                              {paymentLabels[client.paymentStatus]?.label || client.paymentStatus}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                onClick={() => viewClient(client.id)}
+                                title="Voir détails"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-red-500 hover:text-red-600"
+                                onClick={() => handleDelete(client.id)}
+                                disabled={deletingId === client.id}
+                                title="Supprimer"
+                              >
+                                {deletingId === client.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Pagination */}
+                {pagination.totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                    <p className="text-sm text-gray-500">
+                      {((currentPage - 1) * 15) + 1}-{Math.min(currentPage * 15, pagination.total)} sur {pagination.total}
+                    </p>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => p - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => p + 1)}
+                        disabled={currentPage >= pagination.totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </main>
     </div>
   )
 }

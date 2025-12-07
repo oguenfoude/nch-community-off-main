@@ -64,5 +64,5 @@ export const PAYMENT_METHODS = {
   BARIDIMOB: 'baridimob'
 } as const
 
-// Add to lib/constants/index.ts
-export * from './offerPrices'
+// Re-export pricing constants
+export * from './pricing'

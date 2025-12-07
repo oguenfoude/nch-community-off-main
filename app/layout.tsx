@@ -21,7 +21,11 @@ export const metadata: Metadata = {
   title: "NCH Community - Votre passerelle vers l'emploi international",
   description:
     "Nous vous accompagnons dans votre recherche d'emploi à l'étranger avec des services professionnels et personnalisés.",
-  generator: 'v0.dev'
+  generator: 'v0.dev',
+  icons: {
+    icon: '/images/nch-logo.jpg',
+    apple: '/images/nch-logo.jpg',
+  },
 }
 
 export default function RootLayout({

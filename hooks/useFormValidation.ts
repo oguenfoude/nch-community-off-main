@@ -29,11 +29,33 @@ export const useFormValidation = (language: 'fr' | 'ar') => {
 
     if (!formData.firstName.trim()) sectionErrors.firstName = t.errors.required
     if (!formData.lastName.trim()) sectionErrors.lastName = t.errors.required
-    if (!formData.phone.trim()) sectionErrors.phone = t.errors.required
+    
+    // Phone validation with strict format check
+    if (!formData.phone.trim()) {
+      sectionErrors.phone = t.errors.required
+    } else {
+      // Inline phone validation
+      const cleanPhone = formData.phone.replace(/[\s\-\.\(\)]/g, '')
+      if (!/^\+?[0-9]+$/.test(cleanPhone)) {
+        sectionErrors.phone = language === 'fr' 
+          ? "Le téléphone doit contenir uniquement des chiffres"
+          : "يجب أن يحتوي الهاتف على أرقام فقط"
+      } else if (!/^(0|\+213)[5-7][0-9]{8}$/.test(cleanPhone)) {
+        sectionErrors.phone = t.errors.phone
+      }
+    }
+    
+    // Email validation with strict format check
     if (!formData.email.trim()) {
       sectionErrors.email = t.errors.required
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      sectionErrors.email = t.errors.email
+    } else {
+      // Inline email validation
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+      if (!emailRegex.test(formData.email.trim())) {
+        sectionErrors.email = language === 'fr'
+          ? "Format d'email invalide (exemple: nom@email.com)"
+          : "تنسيق البريد الإلكتروني غير صالح"
+      }
     }
     if (!formData.wilaya) sectionErrors.wilaya = t.errors.required
     if (!formData.diploma) sectionErrors.diploma = t.errors.required
@@ -78,8 +100,64 @@ export const useFormValidation = (language: 'fr' | 'ar') => {
   const validateDocuments = (pendingFiles: PendingFiles): FormErrors => {
     const sectionErrors: FormErrors = {}
     
-    if (!pendingFiles.id || !pendingFiles.diploma || !pendingFiles.photo) {
-      sectionErrors.documents = t.errors.documents
+    // Check required documents
+    if (!pendingFiles.id) {
+      sectionErrors.documents = language === 'fr'
+        ? "Document d'identité requis"
+        : "وثيقة الهوية مطلوبة"
+    }
+    if (!pendingFiles.diploma) {
+      sectionErrors.documents = language === 'fr'
+        ? "Diplôme requis"
+        : "الشهادة مطلوبة"
+    }
+    if (!pendingFiles.photo) {
+      sectionErrors.documents = language === 'fr'
+        ? "Photo requise"
+        : "الصورة مطلوبة"
+    }
+    
+    // If all exist, validate file types and sizes
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+    const maxSize = 10 * 1024 * 1024 // 10MB
+    
+    if (pendingFiles.id) {
+      if (!allowedTypes.includes(pendingFiles.id.type)) {
+        sectionErrors.documents = language === 'fr'
+          ? "Format d'identité invalide (PDF, JPG, PNG uniquement)"
+          : "تنسيق الهوية غير صالح (PDF, JPG, PNG فقط)"
+      }
+      if (pendingFiles.id.size > maxSize) {
+        sectionErrors.documents = language === 'fr'
+          ? "Fichier d'identité trop volumineux (max 10MB)"
+          : "ملف الهوية كبير جداً (الحد الأقصى 10 ميغابايت)"
+      }
+    }
+    
+    if (pendingFiles.diploma) {
+      if (!allowedTypes.includes(pendingFiles.diploma.type)) {
+        sectionErrors.documents = language === 'fr'
+          ? "Format de diplôme invalide (PDF, JPG, PNG uniquement)"
+          : "تنسيق الشهادة غير صالح (PDF, JPG, PNG فقط)"
+      }
+      if (pendingFiles.diploma.size > maxSize) {
+        sectionErrors.documents = language === 'fr'
+          ? "Fichier de diplôme trop volumineux (max 10MB)"
+          : "ملف الشهادة كبير جداً (الحد الأقصى 10 ميغابايت)"
+      }
+    }
+    
+    if (pendingFiles.photo) {
+      if (!allowedTypes.includes(pendingFiles.photo.type)) {
+        sectionErrors.documents = language === 'fr'
+          ? "Format de photo invalide (PDF, JPG, PNG uniquement)"
+          : "تنسيق الصورة غير صالح (PDF, JPG, PNG فقط)"
+      }
+      if (pendingFiles.photo.size > maxSize) {
+        sectionErrors.documents = language === 'fr'
+          ? "Fichier photo trop volumineux (max 10MB)"
+          : "ملف الصورة كبير جداً (الحد الأقصى 10 ميغابايت)"
+      }
     }
     
     return sectionErrors
@@ -211,15 +289,29 @@ export const useFormValidation = (language: 'fr' | 'ar') => {
 
       case 'phone':
         if (!value || !value.trim()) return t.errors.required
-        // Validation du format téléphone algérien (optionnel)
-        if (!/^(0|\+213)[5-7][0-9]{8}$/.test(value.replace(/\s/g, ''))) {
+        // Remove all spaces and special characters for validation
+        const cleanPhone = value.replace(/[\s\-\.\(\)]/g, '')
+        // Must contain only digits (and optional + at start)
+        if (!/^\+?[0-9]+$/.test(cleanPhone)) {
+          return language === 'fr' 
+            ? "Le téléphone doit contenir uniquement des chiffres"
+            : "يجب أن يحتوي الهاتف على أرقام فقط"
+        }
+        // Validation du format téléphone algérien (0XXXXXXXXX or +213XXXXXXXXX)
+        if (!/^(0|\+213)[5-7][0-9]{8}$/.test(cleanPhone)) {
           return t.errors.phone
         }
         return undefined
 
       case 'email':
         if (!value || !value.trim()) return t.errors.required
-        if (!/\S+@\S+\.\S+/.test(value)) return t.errors.email
+        // Strict email validation: name@domain.ext
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+        if (!emailRegex.test(value.trim())) {
+          return language === 'fr'
+            ? "Format d'email invalide (exemple: nom@email.com)"
+            : "تنسيق البريد الإلكتروني غير صالح"
+        }
         return undefined
 
       case 'selectedCountries':

@@ -5,7 +5,7 @@ import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import puppeteer from "puppeteer";
 import mammoth from "mammoth";
-import { getAmountByOffer } from "@/lib/utils/pricing";
+import { getTotalPrice } from "@/lib/constants/pricing";
 
 // Fonction pour convertir DOCX en PDF via HTML
 async function convertDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
@@ -100,7 +100,7 @@ async function convertDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
     });
 
     // ✅ Attendre que la page soit prête
-    await page.waitForTimeout(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     console.log('📄 Génération du PDF...');
 
@@ -123,7 +123,8 @@ async function convertDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
 
   } catch (error) {
     console.error('❌ Erreur conversion Puppeteer:', error);
-    throw new Error(`Erreur conversion PDF: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Erreur conversion PDF: ${errorMessage}`);
   } finally {
     // ✅ Assurer la fermeture propre du navigateur
     try {
@@ -139,12 +140,13 @@ async function convertDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
   }
 }
 
-export const getNumberEntreprises = (offer: string): string => {
+const getNumberEntreprises = (offer: string): string => {
   console.log("number entreprises : ", offer);
   switch (offer) {
     case 'basic': return "50"
     case 'premium': return "100"
     case 'gold': return "200"
+    default: return "50"
   }
 }
 
@@ -200,7 +202,7 @@ export async function GET(req: NextRequest) {
       linebreaks: true,
     });
 
-    const amount = getAmountByOffer(offer);
+    const amount = getTotalPrice(offer);
     const entreprises = getNumberEntreprises(offer);
     console.log('💼 Nombre d\'entreprises pour l\'offre:', entreprises)
     console.log('💰 Montant pour l\'offre:', amount)
@@ -271,7 +273,7 @@ export async function GET(req: NextRequest) {
     // }
 
     // 10. Retourner le fichier DOCX
-    return new NextResponse(docxBuffer, {
+    return new NextResponse(new Uint8Array(docxBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -282,11 +284,12 @@ export async function GET(req: NextRequest) {
 
   } catch (error) {
     console.error('❌ Erreur génération document:', error);
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return NextResponse.json(
       {
         error: "Erreur lors de la génération du document",
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
       },
       { status: 500 }
     );
@@ -365,7 +368,7 @@ export async function POST(req: NextRequest) {
       try {
         const pdfBuffer = await convertDocxToPdf(docxBuffer);
 
-        return new NextResponse(pdfBuffer, {
+        return new NextResponse(new Uint8Array(pdfBuffer), {
           status: 200,
           headers: {
             'Content-Type': 'application/pdf',
@@ -380,7 +383,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Retourner DOCX
-    return new NextResponse(docxBuffer, {
+    return new NextResponse(new Uint8Array(docxBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -391,8 +394,9 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('❌ Erreur génération document (POST):', error);
+    const err = error instanceof Error ? error : new Error('Unknown error');
     return NextResponse.json(
-      { error: "Erreur lors de la génération du document", details: error.message },
+      { error: "Erreur lors de la génération du document", details: err.message },
       { status: 500 }
     );
   }

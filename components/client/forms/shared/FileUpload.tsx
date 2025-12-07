@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Upload, Check, Eye, Trash2, Download, FileText } from 'lucide-react'
+import { Upload, Check, Trash2, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { DocumentType, UploadedFile } from '@/lib/types/form'
 import { useFileUpload } from '@/hooks/useFileUpload'

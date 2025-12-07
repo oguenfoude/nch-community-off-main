@@ -1,7 +1,7 @@
 // scripts/create-admin.js
 const bcrypt = require("bcryptjs")
 const { PrismaClient } = require("@prisma/client")
-require('dotenv').config({ path: '.env' })
+require('dotenv').config({ path: '.env.local' })
 
 // ✅ Utiliser Prisma Client au lieu de Mongoose
 const prisma = new PrismaClient({

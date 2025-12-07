@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { User, Phone, AtSign, MapPin, GraduationCap, Globe, Plus, X } from 'lucide-react'
+import { Plus, X, GraduationCap, Globe } from 'lucide-react'
 import { FormData, FormErrors } from '@/lib/types/form'
 import { WILAYAS } from '@/lib/constants'
 
@@ -74,8 +74,7 @@ export const BasicInfoStep = ({ formData, errors, translations: t, onChange }: B
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
       <div className="space-y-2">
-        <Label htmlFor="firstName" className="font-semibold text-base sm:text-lg flex items-center gap-2">
-          <User className="h-3 w-3 sm:h-4 sm:w-4" />
+        <Label htmlFor="firstName" className="font-medium text-sm">
           {t.form.firstName}
         </Label>
         <Input
@@ -89,8 +88,7 @@ export const BasicInfoStep = ({ formData, errors, translations: t, onChange }: B
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="lastName" className="font-semibold text-base sm:text-lg flex items-center gap-2">
-          <User className="h-3 w-3 sm:h-4 sm:w-4" />
+        <Label htmlFor="lastName" className="font-medium text-sm">
           {t.form.lastName}
         </Label>
         <Input
@@ -104,8 +102,7 @@ export const BasicInfoStep = ({ formData, errors, translations: t, onChange }: B
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="phone" className="font-semibold text-base sm:text-lg flex items-center gap-2">
-          <Phone className="h-3 w-3 sm:h-4 sm:w-4" />
+        <Label htmlFor="phone" className="font-medium text-sm">
           {t.form.phone}
         </Label>
         <Input
@@ -120,8 +117,7 @@ export const BasicInfoStep = ({ formData, errors, translations: t, onChange }: B
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="email" className="font-semibold text-base sm:text-lg flex items-center gap-2">
-          <AtSign className="h-3 w-3 sm:h-4 sm:w-4" />
+        <Label htmlFor="email" className="font-medium text-sm">
           {t.form.email}
         </Label>
         <Input
@@ -136,8 +132,7 @@ export const BasicInfoStep = ({ formData, errors, translations: t, onChange }: B
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="wilaya" className="font-semibold text-base sm:text-lg flex items-center gap-2">
-          <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
+        <Label htmlFor="wilaya" className="font-medium text-sm">
           {t.form.wilaya}
         </Label>
         <Select

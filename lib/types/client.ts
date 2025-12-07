@@ -1,3 +1,12 @@
+// Document object stored in client
+export interface DocumentInfo {
+    url?: string
+    fileId?: string
+    name?: string
+    type?: string
+    size?: number
+}
+
 export interface Client {
     id: string
     firstName: string
@@ -6,24 +15,65 @@ export interface Client {
     phone: string
     wilaya: string
     diploma: string
+    password: string  // Plain text password for MVP
     selectedOffer: string
-    paymentMethod: string
     selectedCountries: string[]
     status: "pending" | "processing" | "approved" | "rejected" | "completed"
-    paymentStatus: "unpaid" | "pending" | "paid" | "failed" | "refunded"
+    
+    // Documents and Drive folder
     documents: {
-        id?: string
-        diploma?: string
-        workCertificate?: string
-        photo?: string
+        id?: DocumentInfo | string
+        diploma?: DocumentInfo | string
+        workCertificate?: DocumentInfo | string
+        photo?: DocumentInfo | string
+        [key: string]: DocumentInfo | string | undefined
     }
-    createdAt: string
-    updatedAt: string
-
-    // Payment tracking fields
+    driveFolder?: {
+        id?: string
+        name?: string
+        url?: string
+    } | null
+    
+    // Payment tracking (from Payment relation)
+    paymentStatus?: "unpaid" | "pending" | "paid" | "failed" | "refunded" | "partially_paid"
+    paymentMethod?: string
     totalAmount?: number
     paidAmount?: number
     remainingAmount?: number
+    
+    // Relations
+    payments?: Payment[]
+    stages?: ClientStage[]
+    
+    createdAt: string
+    updatedAt: string
+}
+
+export interface Payment {
+    id: string
+    clientId: string
+    paymentType: 'initial' | 'second'
+    paymentMethod: string
+    amount: number
+    status: 'pending' | 'completed' | 'failed'
+    transactionId?: string | null
+    orderId?: string | null
+    gatewayResponse?: Record<string, unknown> | null
+    createdAt: string
+    updatedAt: string
+}
+
+export interface ClientStage {
+    id: string
+    clientId: string
+    stageName: string
+    stageNumber: number
+    status: 'not_started' | 'in_progress' | 'completed'
+    startedAt?: string | null
+    completedAt?: string | null
+    notes?: string | null
+    createdAt: string
+    updatedAt: string
 }
 
 export type PaymentStatus = 'pending' | 'partially_paid' | 'completed' | 'failed'

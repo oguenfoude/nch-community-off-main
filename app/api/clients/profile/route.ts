@@ -26,19 +26,17 @@ export async function GET(request: NextRequest) {
                 wilaya: true,
                 diploma: true,
                 selectedOffer: true,
-                paymentMethod: true,
-                paymentType: true,
+                // Note: paymentMethod, paymentType, paymentStatus, totalAmount, paidAmount, remainingAmount, baridiMobInfo
+                // are now on Payment model, include payments relation instead
                 status: true,
-                paymentStatus: true,
-                totalAmount: true,
-                paidAmount: true,
-                remainingAmount: true,
-                baridiMobInfo: true,
                 selectedCountries: true,
                 documents: true,
                 driveFolder: true,
                 createdAt: true,
                 updatedAt: true,
+                payments: {
+                    orderBy: { createdAt: 'desc' }
+                },
                 stages: {
                     orderBy: { stageNumber: 'asc' }
                 }

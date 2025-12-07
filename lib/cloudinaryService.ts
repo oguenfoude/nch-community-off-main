@@ -28,9 +28,10 @@ export async function uploadToCloudinary(
         folder?: string
         resourceType?: 'image' | 'raw' | 'auto'
         publicId?: string
+        format?: string
     }
 ): Promise<UploadResult> {
-    const { folder = 'nch-community', resourceType = 'auto', publicId } = options || {}
+    const { folder = 'nch-community', resourceType = 'auto', publicId, format } = options || {}
 
     // Validate configuration
     if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
@@ -38,14 +39,21 @@ export async function uploadToCloudinary(
     }
 
     return new Promise((resolve, reject) => {
+        const uploadOptions: any = {
+            folder,
+            resource_type: resourceType,
+            public_id: publicId || `${Date.now()}_${fileName.replace(/\.[^/.]+$/, '')}`,
+            use_filename: true,
+            unique_filename: true,
+        }
+        
+        // Add format if specified (for PDF uploads)
+        if (format) {
+            uploadOptions.format = format
+        }
+        
         const uploadStream = cloudinary.uploader.upload_stream(
-            {
-                folder,
-                resource_type: resourceType,
-                public_id: publicId || `${Date.now()}_${fileName.replace(/\.[^/.]+$/, '')}`,
-                use_filename: true,
-                unique_filename: true,
-            },
+            uploadOptions,
             (error, result) => {
                 if (error) {
                     console.error('❌ Cloudinary upload error:', error)

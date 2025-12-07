@@ -1,236 +1,163 @@
 // app/api/payment-callback/route.ts
-import crypto from 'crypto'
-import { prisma } from '@/lib/prisma'
+// ============================================
+// REFACTORED: Uses service layer for clean separation
+// ============================================
+
 import { NextRequest, NextResponse } from 'next/server'
 import SofizPaySDK from 'sofizpay-sdk-js'
-
-// ✅ Helper function to calculate offer prices
-function getOfferPrice(offer: string): number {
-    const prices: { [key: string]: number } = {
-        'basic': 21000,
-        'premium': 28000,
-        'gold': 35000
-    }
-    return prices[offer] || 21000
-}
-
-// ✅ Helper function to calculate amounts based on payment type
-function calculatePaymentAmounts(offer: string, paymentType: string) {
-    const basePrice = getOfferPrice(offer)
-    
-    if (paymentType === 'full') {
-        return {
-            totalAmount: basePrice,
-            paidAmount: basePrice - 1000, // Full payment with 1000 discount
-            remainingAmount: 0
-        }
-    } else {
-        // Partial payment
-        return {
-            totalAmount: basePrice,
-            paidAmount: basePrice * 0.5,
-            remainingAmount: basePrice * 0.5
-        }
-    }
-}
+import { 
+  completeCardPaymentRegistration 
+} from '@/lib/services/registration.service'
+import { 
+  completeSecondPayment 
+} from '@/lib/services/payment.service'
+import { prisma } from '@/lib/prisma'
+import { getRemainingAmount } from '@/lib/constants/pricing'
 
 export async function GET(request: NextRequest) {
-    try {
-        const sdk = new SofizPaySDK()
-        const { searchParams } = new URL(request.url)
-        const token = searchParams.get('token')
-        
-        console.log("📥 Payment callback received:", request.url)
-        
-        // ✅ Get SofizPay parameters
-        const status = searchParams.get('payment_status')
-        const transactionId = searchParams.get('transaction_id')
-        const amount = searchParams.get('amount')
-        const signature = searchParams.get('signature')
-        const message = searchParams.get('message')
-        
-        console.log('💳 Callback data:', { token, status, transactionId, amount, message, signature })
+  try {
+    const sdk = new SofizPaySDK()
+    const { searchParams } = new URL(request.url)
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
 
-        // ✅ Verify signature
-        const isValid = sdk.verifySignature({
-            message: message || '',
-            signature_url_safe: signature
-        })
-        
-        console.log("🔐 Signature valid:", isValid)
+    // ============================================
+    // 1. EXTRACT CALLBACK PARAMETERS
+    // ============================================
+    const token = searchParams.get('token')
+    const status = searchParams.get('payment_status')
+    const transactionId = searchParams.get('transaction_id')
+    const amount = searchParams.get('amount')
+    const signature = searchParams.get('signature')
+    const message = searchParams.get('message')
 
-        if (!isValid) {
-            console.log('❌ Invalid signature - reject request')
-            return NextResponse.redirect(new URL('/error?reason=invalid_signature', request.url))
-        }
+    console.log('📥 Payment callback received:', { token, status, transactionId, amount })
 
-        if (!token) {
-            return NextResponse.redirect(new URL('/error?reason=invalid_token', request.url))
-        }
+    // ============================================
+    // 2. VERIFY SIGNATURE
+    // ============================================
+    const isValid = sdk.verifySignature({
+      message: message || '',
+      signature_url_safe: signature || ''
+    })
 
-        // ✅ Get pending registration from database
-        const pendingRegistration = await prisma.pendingRegistration.findFirst({
-            where: {
-                sessionToken: token,
-                status: 'pending'
-            }
-        })
+    console.log('🔐 Signature valid:', isValid)
 
-        if (!pendingRegistration) {
-            console.log('❌ Session not found or expired')
-            return NextResponse.redirect(new URL('/error?reason=session_expired', request.url))
-        }
-
-        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-
-        // ✅ Handle successful payment
-        if (status === 'success' || status === 'completed') {
-            const registrationData = pendingRegistration.registrationData as any
-            const paymentDetails = pendingRegistration.paymentDetails as any
-            
-            console.log('✅ Payment successful, creating client...')
-            
-            // ✅ CHECK IF THIS IS A SECOND PAYMENT (for partial payments)
-            if (registrationData.isSecondPayment && registrationData.clientId) {
-                console.log('🔵 Processing second payment for client:', registrationData.clientId)
-                
-                const client = await prisma.client.findUnique({
-                    where: { id: registrationData.clientId }
-                })
-
-                if (client) {
-                    // Update to fully paid
-                    await prisma.client.update({
-                        where: { id: client.id },
-                        data: {
-                            paymentStatus: 'paid',
-                            paidAmount: client.totalAmount,
-                            remainingAmount: 0,
-                            updatedAt: new Date()
-                        }
-                    })
-
-                    console.log('✅ Second payment completed for client:', client.email)
-
-                    // Delete the pending registration
-                    await prisma.pendingRegistration.delete({
-                        where: { sessionToken: token }
-                    })
-
-                    // Redirect to dashboard with success message
-                    return NextResponse.redirect(
-                        new URL(`/me?payment=success&type=second`, baseUrl)
-                    )
-                }
-            } else {
-                // ✅ FIRST PAYMENT LOGIC (Registration)
-                console.log('🔵 Processing first payment (registration)')
-                
-                // Calculate amounts based on payment type
-                const paymentType = paymentDetails.paymentType || registrationData.paymentType || 'partial'
-                const amounts = calculatePaymentAmounts(registrationData.selectedOffer, paymentType)
-                
-                // Determine payment status
-                const paymentStatus = paymentType === 'full' ? 'paid' : 'partially_paid'
-                
-                console.log('💰 Payment details:', {
-                    paymentType,
-                    totalAmount: amounts.totalAmount,
-                    paidAmount: amounts.paidAmount,
-                    remainingAmount: amounts.remainingAmount,
-                    paymentStatus
-                })
-                
-                // Create the client
-                const client = await prisma.client.create({
-                    data: {
-                        firstName: registrationData.firstName,
-                        lastName: registrationData.lastName,
-                        email: registrationData.email,
-                        phone: registrationData.phone,
-                        wilaya: registrationData.wilaya,
-                        diploma: registrationData.diploma,
-                        selectedOffer: registrationData.selectedOffer,
-                        paymentMethod: registrationData.paymentMethod,
-                        
-                        // ✅ Payment tracking
-                        paymentType: paymentType,
-                        paymentStatus: paymentStatus,
-                        totalAmount: amounts.totalAmount,
-                        paidAmount: amounts.paidAmount,
-                        remainingAmount: amounts.remainingAmount,
-                        
-                        // ✅ Other data
-                        baridiMobInfo: registrationData.baridiMobInfo || null,
-                        paymentReceipt: registrationData.paymentReceipt || null,
-                        selectedCountries: registrationData.selectedCountries || [],
-                        documents: registrationData.documents || {},
-                        driveFolder: registrationData.driveFolder || {},
-                        password: registrationData.password,
-                        status: 'pending',
-                    }
-                })
-
-                console.log('✅ Client created successfully:', client.email)
-
-                // TODO: Send email with credentials
-                // await sendCredentialsEmail(client.email, client.firstName, client.lastName, client.password)
-
-                // Delete the pending registration
-                await prisma.pendingRegistration.delete({
-                    where: { sessionToken: token }
-                })
-
-                // Redirect to success page
-                const successUrl = paymentType === 'full' 
-                    ? `/success?email=${client.email}&type=full`
-                    : `/success?email=${client.email}&type=partial&remaining=${amounts.remainingAmount}`
-                
-                return NextResponse.redirect(new URL(successUrl, baseUrl))
-            }
-        }
-
-        // ✅ Handle failed payment
-        if (status === 'failed' || status === 'cancelled') {
-            console.log('❌ Payment failed or cancelled')
-            
-            // Delete the pending registration
-            await prisma.pendingRegistration.delete({
-                where: { sessionToken: token }
-            })
-
-            return NextResponse.redirect(
-                new URL('/error?reason=payment_failed', request.url)
-            )
-        }
-
-        // ✅ Handle pending payment (shouldn't happen often)
-        console.log('⏳ Payment pending...')
-        return NextResponse.redirect(
-            new URL('/error?reason=payment_pending', request.url)
-        )
-
-    } catch (error: any) {
-        console.error('❌ Callback error:', error)
-        return NextResponse.redirect(
-            new URL('/error?reason=callback_error', request.url)
-        )
+    if (!isValid) {
+      console.log('❌ Invalid signature')
+      return NextResponse.redirect(new URL('/error?reason=invalid_signature', baseUrl))
     }
-}
 
-// ✅ Optional: Validation de signature (if you want additional security)
-function validateSofizPaySignature(params: URLSearchParams, signature: string): boolean {
-    const secret = process.env.SOFIZPAY_WEBHOOK_SECRET
-    if (!secret) return false
+    if (!token) {
+      console.log('❌ Missing token')
+      return NextResponse.redirect(new URL('/error?reason=invalid_token', baseUrl))
+    }
 
-    const payload = params.toString()
-    const expectedSignature = crypto
-        .createHmac('sha256', secret)
-        .update(payload)
-        .digest('hex')
+    // ============================================
+    // 3. HANDLE FAILED PAYMENT
+    // ============================================
+    if (status === 'failed' || status === 'cancelled') {
+      console.log('❌ Payment failed or cancelled')
+      
+      // Clean up pending registration
+      await prisma.pendingRegistration.deleteMany({
+        where: { sessionToken: token }
+      })
+      
+      return NextResponse.redirect(new URL('/error?reason=payment_failed', baseUrl))
+    }
 
-    return crypto.timingSafeEqual(
-        Buffer.from(signature, 'hex'),
-        Buffer.from(expectedSignature, 'hex')
-    )
+    // ============================================
+    // 4. HANDLE SUCCESSFUL PAYMENT
+    // ============================================
+    if (status === 'success' || status === 'completed') {
+      console.log('✅ Payment successful, processing...')
+
+      // Get pending registration to check type
+      const pending = await prisma.pendingRegistration.findFirst({
+        where: { sessionToken: token, status: 'pending' }
+      })
+
+      if (!pending) {
+        console.log('❌ Session not found or expired')
+        return NextResponse.redirect(new URL('/error?reason=session_expired', baseUrl))
+      }
+
+      const regData = pending.registrationData as any
+      const paymentDetails = pending.paymentDetails as any
+
+      const sofizpayResponse = {
+        status,
+        transactionId,
+        amount,
+        signature,
+        message,
+        timestamp: new Date().toISOString(),
+      }
+
+      // ============================================
+      // 4A. SECOND PAYMENT (existing client)
+      // ============================================
+      if (regData.isSecondPayment && regData.clientId) {
+        console.log('🔵 Processing second payment for client:', regData.clientId)
+        
+        const result = await completeSecondPayment(
+          token,
+          transactionId || '',
+          sofizpayResponse
+        )
+
+        if (!result.success) {
+          console.log('❌ Second payment failed:', result.error)
+          return NextResponse.redirect(new URL('/error?reason=payment_error', baseUrl))
+        }
+
+        console.log('✅ Second payment completed')
+        return NextResponse.redirect(new URL('/me?payment=success&type=second', baseUrl))
+      }
+
+      // ============================================
+      // 4B. INITIAL PAYMENT (new registration)
+      // ============================================
+      console.log('🔵 Processing initial payment (new registration)')
+      
+      const result = await completeCardPaymentRegistration(
+        token,
+        transactionId || '',
+        sofizpayResponse
+      )
+
+      if (!result.success) {
+        console.log('❌ Registration completion failed:', result.error)
+        return NextResponse.redirect(new URL('/error?reason=registration_error', baseUrl))
+      }
+
+      console.log('✅ Client created successfully:', result.credentials?.email)
+
+      // Build success URL
+      const paymentType = regData.paymentType || 'partial'
+      const remainingAmount = getRemainingAmount(regData.selectedOffer, paymentType)
+      
+      const successParams = new URLSearchParams({
+        email: result.credentials?.email || '',
+        type: paymentType,
+      })
+      
+      if (paymentType === 'partial') {
+        successParams.set('remaining', remainingAmount.toString())
+      }
+
+      return NextResponse.redirect(new URL(`/success?${successParams.toString()}`, baseUrl))
+    }
+
+    // ============================================
+    // 5. HANDLE PENDING STATUS
+    // ============================================
+    console.log('⏳ Payment status pending...')
+    return NextResponse.redirect(new URL('/error?reason=payment_pending', baseUrl))
+
+  } catch (error: any) {
+    console.error('❌ Callback error:', error)
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    return NextResponse.redirect(new URL('/error?reason=callback_error', baseUrl))
+  }
 }

@@ -55,8 +55,10 @@ export async function POST(request: NextRequest) {
     const fileName = `${documentType}_${Date.now()}.${fileExtension}`
 
     console.log('📝 Nom du fichier généré:', fileName)
+    console.log('📁 Type MIME:', file.type)
 
     // Déterminer le type de ressource pour Cloudinary
+    // PDFs go as 'raw', images as 'image'
     const resourceType = file.type === 'application/pdf' ? 'raw' : 'image'
 
     // Upload vers Cloudinary
@@ -71,11 +73,21 @@ export async function POST(request: NextRequest) {
 
     // Ensure we use secure URLs (HTTPS)
     const secureUrl = result.secureUrl || result.url.replace('http://', 'https://')
+    
+    // ✅ For PDFs: Create a preview URL using Google Docs Viewer
+    // For images: Use the Cloudinary URL directly
+    let previewUrl = secureUrl
+    if (file.type === 'application/pdf') {
+      // Google Docs Viewer can preview PDFs from public URLs
+      previewUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(secureUrl)}&embedded=true`
+    }
 
     const response = {
       url: secureUrl,
       publicId: result.publicId,
       downloadUrl: secureUrl,
+      previewUrl: previewUrl, // ✅ Added preview URL
+      isPdf: file.type === 'application/pdf', // ✅ Flag to indicate PDF
       fileInfo: {
         name: result.originalFilename,
         size: result.size,

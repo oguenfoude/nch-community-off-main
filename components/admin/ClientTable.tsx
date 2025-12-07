@@ -18,6 +18,15 @@ import { Search, Plus, Edit, Trash2, Eye, Filter, Loader2, ChevronLeft, ChevronR
 import type { Client, PaginationInfo } from "@/lib/types"
 import { statusConfig, offerLabels, paymentStatusConfig } from "@/lib/constants"
 
+interface LoadingStates {
+    refreshing: boolean
+    statusUpdate: string
+    paymentStatusUpdate: string
+    adding: boolean
+    editing: boolean
+    deleting: string
+}
+
 interface ClientTableProps {
     clients: Client[]
     loading: boolean
@@ -35,6 +44,7 @@ interface ClientTableProps {
     onDelete: (clientId: string) => void
     onAddClick: () => void
     onPaymentStatusChange?: (clientId: string, newPaymentStatus: Client["paymentStatus"]) => void
+    loadingStates?: LoadingStates
 }
 
 export default function ClientTable({
@@ -231,15 +241,15 @@ export default function ClientTable({
                                                 <TableCell>
                                                     <div className="flex items-center space-x-2">
                                                         <Badge
-                                                            className={`${paymentStatusConfig[client.paymentStatus]?.color || "bg-gray-100 text-gray-800"} ${onPaymentStatusChange ? "cursor-pointer hover:opacity-80" : ""
+                                                            className={`${client.paymentStatus ? (paymentStatusConfig[client.paymentStatus]?.color || "bg-gray-100 text-gray-800") : "bg-gray-100 text-gray-800"} ${onPaymentStatusChange ? "cursor-pointer hover:opacity-80" : ""
                                                                 }`}
-                                                            onClick={() => onPaymentStatusChange && handlePaymentStatusClick(client._id, client.paymentStatus)}
+                                                            onClick={() => onPaymentStatusChange && client.paymentStatus && handlePaymentStatusClick(client.id, client.paymentStatus)}
                                                             title={onPaymentStatusChange ? "Cliquer pour changer le statut" : ""}
                                                         >
                                                             <span className="mr-1">
-                                                                {paymentStatusConfig[client.paymentStatus]?.icon || "❓"}
+                                                                {client.paymentStatus ? (paymentStatusConfig[client.paymentStatus]?.icon || "❓") : "❓"}
                                                             </span>
-                                                            {paymentStatusConfig[client.paymentStatus]?.label || client.paymentStatus}
+                                                            {client.paymentStatus ? (paymentStatusConfig[client.paymentStatus]?.label || client.paymentStatus) : "Non défini"}
                                                         </Badge>
                                                     </div>
                                                 </TableCell>

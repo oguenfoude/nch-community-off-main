@@ -4,29 +4,18 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
-    User,
-    Mail,
-    Phone,
-    MapPin,
-    GraduationCap,
-    CreditCard,
-    FileText,
-    Calendar,
     LogOut,
     Loader2,
     CheckCircle2,
     Clock,
-    XCircle,
+    Circle,
+    CreditCard,
     AlertCircle,
-    Globe,
-    Download,
-    Eye,
-    Image as ImageIcon,
-    File
+    Phone,
+    Mail
 } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -36,7 +25,6 @@ interface Stage {
     stageNumber: number
     stageName: string
     status: string
-    requiredDocuments: string[]
     notes: string
 }
 
@@ -46,22 +34,13 @@ interface ClientData {
     lastName: string
     email: string
     phone: string
-    wilaya: string
-    diploma: string
     selectedOffer: string
-    paymentMethod: string
-    paymentType?: string
     status: string
     paymentStatus: string
     selectedCountries: string[]
-    createdAt: string
-    updatedAt: string
-    documents?: any
-    driveFolder?: any
     totalAmount?: number
     paidAmount?: number
     remainingAmount?: number
-    baridiMobInfo?: any
     stages?: Stage[]
 }
 
@@ -70,38 +49,31 @@ export default function ClientDashboard() {
     const router = useRouter()
     const [client, setClient] = useState<ClientData | null>(null)
     const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState('')
 
     useEffect(() => {
         if (status === 'loading') return
-
         if (!session || session.user.userType !== 'client') {
             router.push('/login')
             return
         }
-
         fetchClientData()
     }, [session, status, router])
 
     const fetchClientData = async () => {
         try {
-            const [profileResponse, stagesResponse] = await Promise.all([
+            const [profileRes, stagesRes] = await Promise.all([
                 fetch('/api/clients/profile'),
                 fetch('/api/clients/stages')
             ])
-
-            const profileData = await profileResponse.json()
-            const stagesData = await stagesResponse.json()
+            const profileData = await profileRes.json()
+            const stagesData = await stagesRes.json()
 
             if (profileData.success) {
                 setClient({ ...profileData.client, stages: stagesData.stages || [] })
             } else {
-                setError(profileData.error || 'Erreur de chargement')
-                toast.error('Erreur lors du chargement des données')
+                toast.error('Erreur de chargement')
             }
-        } catch (error) {
-            console.error('Erreur:', error)
-            setError('Erreur de connexion')
+        } catch {
             toast.error('Erreur de connexion')
         } finally {
             setIsLoading(false)
@@ -109,593 +81,246 @@ export default function ClientDashboard() {
     }
 
     const handleLogout = async () => {
-        try {
-            await signOut({ callbackUrl: '/login' })
-            toast.success('Déconnexion réussie')
-        } catch (error) {
-            toast.error('Erreur lors de la déconnexion')
+        await signOut({ callbackUrl: '/login' })
+    }
+
+    const getStageStatus = (stage: Stage) => {
+        const s = (stage.status || 'not_started').toLowerCase()
+        if (s === 'completed' || s === 'approved') return 'done'
+        if (s === 'in_progress' || s === 'processing') return 'current'
+        return 'pending'
+    }
+
+    const getPaymentBadge = (paymentStatus: string | undefined) => {
+        const s = (paymentStatus || 'pending').toLowerCase()
+        switch (s) {
+            case 'paid':
+            case 'verified':
+            case 'completed':
+                return { text: 'Payé', color: 'bg-green-100 text-green-700 border-green-200' }
+            case 'partially_paid':
+                return { text: 'Partiel', color: 'bg-orange-100 text-orange-700 border-orange-200' }
+            default:
+                return { text: 'En attente', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' }
         }
     }
 
-    const getStatusColor = (status: string) => {
-        switch (status.toLowerCase()) {
-            case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-            case 'processing': return 'bg-blue-100 text-blue-800 border-blue-200'
-            case 'approved': return 'bg-green-100 text-green-800 border-green-200'
-            case 'rejected': return 'bg-red-100 text-red-800 border-red-200'
-            case 'completed': return 'bg-purple-100 text-purple-800 border-purple-200'
-            case 'partially_paid': return 'bg-orange-100 text-orange-800 border-orange-200'
-            case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200'
-            case 'pending_review': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-            case 'not_started': return 'bg-gray-100 text-gray-800 border-gray-200'
-            default: return 'bg-gray-100 text-gray-800 border-gray-200'
-        }
-    }
-
-    const getStatusIcon = (status: string) => {
-        switch (status.toLowerCase()) {
-            case 'pending': return <Clock className="h-3 w-3" />
-            case 'processing': return <Loader2 className="h-3 w-3 animate-spin" />
-            case 'approved': return <CheckCircle2 className="h-3 w-3" />
-            case 'rejected': return <XCircle className="h-3 w-3" />
-            case 'completed': return <CheckCircle2 className="h-3 w-3" />
-            case 'partially_paid': return <CreditCard className="h-3 w-3" />
-            case 'in_progress': return <Loader2 className="h-3 w-3 animate-spin" />
-            case 'pending_review': return <Clock className="h-3 w-3" />
-            case 'not_started': return <AlertCircle className="h-3 w-3" />
-            default: return <AlertCircle className="h-3 w-3" />
-        }
-    }
-
-    const getStatusText = (status: string) => {
-        switch (status.toLowerCase()) {
-            case 'pending': return 'En attente'
-            case 'processing': return 'En traitement'
-            case 'approved': return 'Approuvé'
-            case 'rejected': return 'Rejeté'
-            case 'completed': return 'Complété'
-            case 'partially_paid': return 'Partiellement payé'
-            case 'in_progress': return 'En cours'
-            case 'pending_review': return 'En attente'
-            case 'not_started': return 'Non démarré'
-            default: return status
-        }
-    }
-
-    const getOfferText = (offer: string) => {
-        switch (offer.toLowerCase()) {
-            case 'basic': return 'Offre Basic'
-            case 'premium': return 'Offre Premium'
-            case 'gold': return 'Offre Gold'
-            default: return offer
+    const getOfferName = (offer: string | undefined) => {
+        switch ((offer || '').toLowerCase()) {
+            case 'basic': return 'Basic'
+            case 'premium': return 'Premium'
+            case 'gold': return 'Gold'
+            default: return offer || '-'
         }
     }
 
     if (status === 'loading' || isLoading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center">
                 <div className="text-center">
-                    <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-nch-primary" />
-                    <p className="text-gray-600">Chargement de votre espace...</p>
+                    <Loader2 className="h-10 w-10 animate-spin mx-auto mb-3 text-[#042d8e]" />
+                    <p className="text-slate-500">Chargement...</p>
                 </div>
             </div>
         )
     }
 
-    if (!session || error) {
+    if (!session || !client) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center">
                 <div className="text-center">
-                    <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-                    <p className="text-red-600 mb-4">{error || 'Session expirée'}</p>
-                    <Link href="/login" className="text-blue-600 hover:text-blue-500">
-                        Se reconnecter
+                    <AlertCircle className="h-10 w-10 text-red-500 mx-auto mb-3" />
+                    <p className="text-slate-600 mb-4">Session expirée</p>
+                    <Link href="/login">
+                        <Button className="bg-[#042d8e]">Se reconnecter</Button>
                     </Link>
                 </div>
             </div>
         )
     }
 
-    if (!client) return null
+    const paymentBadge = getPaymentBadge(client.paymentStatus)
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
             {/* Header */}
-            <header className="bg-white shadow-sm border-b">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-4">
-                        <div className="flex items-center space-x-4">
-                            <Avatar className="h-10 w-10">
-                                <AvatarFallback className="bg-nch-primary text-white">
-                                    {client.firstName[0]}{client.lastName[0]}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <h1 className="text-xl font-semibold text-gray-900">
-                                    Bonjour, {client.firstName} {client.lastName}
-                                </h1>
-                                <p className="text-sm text-gray-500">Espace Client NCH Community</p>
-                            </div>
+            <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+                <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[#042d8e] rounded-full flex items-center justify-center text-white font-semibold">
+                            {client.firstName[0]}{client.lastName[0]}
                         </div>
-                        <Button
-                            onClick={handleLogout}
-                            variant="outline"
-                            className="text-red-600 border-red-200 hover:bg-red-50"
-                        >
-                            <LogOut className="h-4 w-4 mr-2" />
-                            Déconnexion
-                        </Button>
+                        <div>
+                            <h1 className="font-semibold text-slate-900">{client.firstName} {client.lastName}</h1>
+                            <p className="text-sm text-slate-500">NCH Community</p>
+                        </div>
                     </div>
+                    <Button onClick={handleLogout} variant="ghost" size="sm" className="text-slate-500 hover:text-red-600">
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Déconnexion
+                    </Button>
                 </div>
             </header>
 
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+                
+                {/* Status Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="border-0 shadow-sm">
+                        <CardContent className="p-5">
+                            <p className="text-sm text-slate-500 mb-1">Offre</p>
+                            <p className="text-xl font-bold text-[#042d8e]">{getOfferName(client.selectedOffer)}</p>
+                        </CardContent>
+                    </Card>
 
-                    {/* Statut du dossier */}
-                    <div className="lg:col-span-1">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center">
-                                    <FileText className="h-5 w-5 mr-2 text-nch-primary" />
-                                    Statut du dossier
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div>
-                                    <label className="text-sm font-medium text-gray-500 mb-2 block">
-                                        Statut général
-                                    </label>
-                                    <Badge
-                                        variant="secondary"
-                                        className={`${getStatusColor(client.status)} flex items-center gap-2 w-fit`}
-                                    >
-                                        {getStatusIcon(client.status)}
-                                        {getStatusText(client.status)}
-                                    </Badge>
-                                </div>
+                    <Card className="border-0 shadow-sm">
+                        <CardContent className="p-5">
+                            <p className="text-sm text-slate-500 mb-1">Paiement</p>
+                            <Badge className={`${paymentBadge.color} border font-medium`}>
+                                {paymentBadge.text}
+                            </Badge>
+                        </CardContent>
+                    </Card>
 
-                                <div>
-                                    <label className="text-sm font-medium text-gray-500 mb-2 block">
-                                        Statut paiement
-                                    </label>
-                                    <Badge
-                                        variant="secondary"
-                                        className={`${getStatusColor(client.paymentStatus)} flex items-center gap-2 w-fit`}
-                                    >
-                                        {getStatusIcon(client.paymentStatus)}
-                                        {getStatusText(client.paymentStatus)}
-                                    </Badge>
-                                </div>
-
-                                <div>
-                                    <label className="text-sm font-medium text-gray-500 mb-2 block">
-                                        Offre sélectionnée
-                                    </label>
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                        <p className="text-blue-800 font-medium">{getOfferText(client.selectedOffer)}</p>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="text-sm font-medium text-gray-500 mb-2 block">
-                                        Méthode de paiement
-                                    </label>
-                                    <div className="flex items-center text-gray-700">
-                                        <CreditCard className="h-4 w-4 mr-2" />
-                                        <span className="capitalize">{client.paymentMethod}</span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Suivi des étapes - UPDATED */}
-                    <div className="lg:col-span-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center">
-                                    <FileText className="h-5 w-5 mr-2 text-nch-primary" />
-                                    Suivi des étapes de votre dossier
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full border-collapse">
-                                        <thead>
-                                            <tr className="bg-gray-50 border-b-2 border-gray-200">
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                                                    N° Étape
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                                                    Nom de l'étape
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                                                    Statut
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                                                    Documents à télécharger
-                                                </th>
-                                                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                                                    Notes
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-200">
-                                            {client.stages && client.stages.length > 0 ? (
-                                                client.stages.map((stage) => (
-                                                    <tr key={stage.id} className="hover:bg-gray-50">
-                                                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                                            {stage.stageNumber}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-sm text-gray-700">
-                                                            {stage.stageName}
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <Badge className={getStatusColor(stage.status)}>
-                                                                {getStatusIcon(stage.status)}
-                                                                <span className="ml-1">{getStatusText(stage.status)}</span>
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-sm text-gray-600">
-                                                            {stage.requiredDocuments.length > 0 
-                                                                ? stage.requiredDocuments.join(', ') 
-                                                                : '-'}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-sm text-gray-600">
-                                                            {stage.notes || '-'}
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                                                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                                                        Chargement des étapes...
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                    <Card className="border-0 shadow-sm">
+                        <CardContent className="p-5">
+                            <p className="text-sm text-slate-500 mb-1">Pays</p>
+                            <p className="font-semibold text-slate-800">
+                                {client.selectedCountries?.length > 0 
+                                    ? client.selectedCountries.join(', ') 
+                                    : '-'}
+                            </p>
+                        </CardContent>
+                    </Card>
                 </div>
 
-                {/* Informations personnelles - Row 2 */}
-                <div className="grid grid-cols-1 gap-6 mt-6">
-                    <div>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center">
-                                    <User className="h-5 w-5 mr-2 text-nch-primary" />
-                                    Informations personnelles
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-500 mb-1 block">
-                                                Prénom
-                                            </label>
-                                            <div className="flex items-center text-gray-900">
-                                                <User className="h-4 w-4 mr-2 text-gray-400" />
-                                                {client.firstName}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-500 mb-1 block">
-                                                Email
-                                            </label>
-                                            <div className="flex items-center text-gray-900">
-                                                <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                                                {client.email}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-500 mb-1 block">
-                                                Wilaya
-                                            </label>
-                                            <div className="flex items-center text-gray-900">
-                                                <MapPin className="h-4 w-4 mr-2 text-gray-400" />
-                                                {client.wilaya}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-500 mb-1 block">
-                                                Date d'inscription
-                                            </label>
-                                            <div className="flex items-center text-gray-900">
-                                                <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                                                {new Date(client.createdAt).toLocaleDateString('fr-FR')}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-500 mb-1 block">
-                                                Nom
-                                            </label>
-                                            <div className="flex items-center text-gray-900">
-                                                <User className="h-4 w-4 mr-2 text-gray-400" />
-                                                {client.lastName}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-500 mb-1 block">
-                                                Téléphone
-                                            </label>
-                                            <div className="flex items-center text-gray-900">
-                                                <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                                                {client.phone}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-500 mb-1 block">
-                                                Diplôme
-                                            </label>
-                                            <div className="flex items-center text-gray-900">
-                                                <GraduationCap className="h-4 w-4 mr-2 text-gray-400" />
-                                                {client.diploma}
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-sm font-medium text-gray-500 mb-1 block">
-                                                Date d'inscription
-                                            </label>
-                                            <div className="flex items-center text-gray-900">
-                                                <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                                                {client.createdAt
-                                                    ? new Date(client.createdAt).toLocaleDateString('fr-FR')
-                                                    : 'Non disponible'
-                                                }
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Pays sélectionnés */}
-                                {client.selectedCountries.length > 0 && (
-                                    <div className="mt-6 pt-6 border-t border-gray-200">
-                                        <label className="text-sm font-medium text-gray-500 mb-3 block flex items-center">
-                                            <Globe className="h-4 w-4 mr-2" />
-                                            Pays sélectionnés
-                                        </label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {client.selectedCountries.map((country, index) => (
-                                                <Badge
-                                                    key={index}
-                                                    variant="outline"
-                                                    className="bg-green-50 text-green-700 border-green-200"
-                                                >
-                                                    {country}
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-
-                {/* Documents Section */}
-                {client.documents && Object.keys(client.documents).length > 0 && (
-                    <div className="mt-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center">
-                                    <FileText className="h-5 w-5 mr-2 text-nch-primary" />
-                                    Mes Documents
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    {Object.entries(client.documents).map(([docType, docData]: [string, any]) => {
-                                        if (!docData || !docData.url) return null
-                                        
-                                        const docLabels: Record<string, string> = {
-                                            id: 'Carte d\'identité',
-                                            diploma: 'Diplôme',
-                                            workCertificate: 'Certificat de travail',
-                                            photo: 'Photo',
-                                            paymentReceipt: 'Reçu de paiement'
-                                        }
-                                        
-                                        const isImage = docData.url?.includes('/image/') || 
-                                                       docData.type?.startsWith('image/') ||
-                                                       docData.format === 'jpg' || 
-                                                       docData.format === 'png' ||
-                                                       docData.format === 'jpeg'
-                                        const isPdf = docData.url?.includes('/raw/') || 
-                                                     docData.type === 'application/pdf' ||
-                                                     docData.format === 'pdf' ||
-                                                     docData.name?.endsWith('.pdf')
-                                        
-                                        return (
-                                            <div key={docType} className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <div className="flex items-center">
-                                                        {isPdf ? (
-                                                            <File className="h-5 w-5 text-red-500 mr-2" />
-                                                        ) : (
-                                                            <ImageIcon className="h-5 w-5 text-blue-500 mr-2" />
-                                                        )}
-                                                        <span className="font-medium text-sm">
-                                                            {docLabels[docType] || docType}
-                                                        </span>
-                                                    </div>
-                                                    <Badge variant="outline" className="text-xs">
-                                                        {isPdf ? 'PDF' : 'Image'}
-                                                    </Badge>
-                                                </div>
-                                                
-                                                {/* Preview for images */}
-                                                {isImage && docData.url && (
-                                                    <div className="mb-3 rounded overflow-hidden border">
-                                                        <img 
-                                                            src={docData.url} 
-                                                            alt={docLabels[docType] || docType}
-                                                            className="w-full h-24 object-cover"
-                                                            onError={(e) => {
-                                                                (e.target as HTMLImageElement).style.display = 'none'
-                                                            }}
-                                                        />
-                                                    </div>
-                                                )}
-                                                
-                                                {/* PDF preview placeholder */}
-                                                {isPdf && (
-                                                    <div className="mb-3 rounded border bg-red-50 h-24 flex items-center justify-center">
-                                                        <File className="h-10 w-10 text-red-400" />
-                                                    </div>
-                                                )}
-                                                
-                                                <div className="flex gap-2">
-                                                    <a
-                                                        href={docData.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex-1"
-                                                    >
-                                                        <Button size="sm" variant="outline" className="w-full text-xs">
-                                                            <Eye className="h-3 w-3 mr-1" />
-                                                            Voir
-                                                        </Button>
-                                                    </a>
-                                                    <a
-                                                        href={docData.downloadUrl || docData.url}
-                                                        download={docData.name || `${docType}.${isPdf ? 'pdf' : 'jpg'}`}
-                                                        className="flex-1"
-                                                    >
-                                                        <Button size="sm" variant="default" className="w-full text-xs bg-nch-primary hover:bg-nch-primary/90">
-                                                            <Download className="h-3 w-3 mr-1" />
-                                                            Télécharger
-                                                        </Button>
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
-
-                {/* Payment Reminder Section */}
-                {client.paymentStatus === 'partially_paid' && client.stages && (
-                    (() => {
-                        const stage2 = client.stages.find(s => s.stageNumber === 2)
-                        const isStage2Completed = stage2?.status === 'completed'
+                {/* Stage Tracker */}
+                <Card className="border-0 shadow-sm">
+                    <CardContent className="p-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-6">Suivi de votre dossier</h2>
                         
-                        return isStage2Completed ? (
-                            <div className="mt-6">
-                                <Card className="border-2 border-orange-500 bg-orange-50">
-                                    <CardContent className="p-6">
-                                        <div className="flex items-start space-x-4">
-                                            <div className="flex-shrink-0">
-                                                <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
-                                                    <AlertCircle className="h-6 w-6 text-white" />
+                        {client.stages && client.stages.length > 0 ? (
+                            <div className="space-y-1">
+                                {client.stages.map((stage, index) => {
+                                    const stageStatus = getStageStatus(stage)
+                                    const isLast = index === client.stages!.length - 1
+                                    
+                                    return (
+                                        <div key={stage.id} className="flex items-start gap-4">
+                                            <div className="flex flex-col items-center">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
+                                                    stageStatus === 'done' 
+                                                        ? 'bg-green-500 border-green-500 text-white' 
+                                                        : stageStatus === 'current'
+                                                        ? 'bg-[#042d8e] border-[#042d8e] text-white'
+                                                        : 'bg-white border-slate-300 text-slate-400'
+                                                }`}>
+                                                    {stageStatus === 'done' ? (
+                                                        <CheckCircle2 className="h-5 w-5" />
+                                                    ) : stageStatus === 'current' ? (
+                                                        <Clock className="h-5 w-5" />
+                                                    ) : (
+                                                        <Circle className="h-5 w-5" />
+                                                    )}
                                                 </div>
+                                                {!isLast && (
+                                                    <div className={`w-0.5 h-14 ${
+                                                        stageStatus === 'done' ? 'bg-green-500' : 'bg-slate-200'
+                                                    }`} />
+                                                )}
                                             </div>
-                                            <div className="flex-1">
-                                                <h3 className="text-lg font-semibold text-orange-900 mb-2">
-                                                    💳 Paiement du solde requis
+                                            
+                                            <div className="flex-1 pb-6">
+                                                <div className="flex items-center gap-3 mb-1">
+                                                    <span className="text-sm font-medium text-slate-500">
+                                                        Étape {stage.stageNumber}
+                                                    </span>
+                                                    {stageStatus === 'done' && (
+                                                        <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                                                            Terminé
+                                                        </Badge>
+                                                    )}
+                                                    {stageStatus === 'current' && (
+                                                        <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">
+                                                            En cours
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <h3 className={`font-semibold ${
+                                                    stageStatus === 'pending' ? 'text-slate-400' : 'text-slate-800'
+                                                }`}>
+                                                    {stage.stageName}
                                                 </h3>
-                                                <p className="text-orange-800 mb-4">
-                                                    Félicitations ! Vous avez complété l'étape 2. Pour continuer le traitement 
-                                                    de votre dossier, veuillez régler le solde restant.
-                                                </p>
-                                                
-                                                <div className="bg-white rounded-lg p-4 mb-4">
-                                                    <div className="grid grid-cols-3 gap-4 text-sm">
-                                                        <div>
-                                                            <p className="text-gray-600">Montant total</p>
-                                                            <p className="text-lg font-bold text-gray-900">
-                                                                {client.totalAmount?.toLocaleString('fr-DZ')} DZD
-                                                            </p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-gray-600">Déjà payé</p>
-                                                            <p className="text-lg font-bold text-green-600">
-                                                                {client.paidAmount?.toLocaleString('fr-DZ')} DZD
-                                                            </p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-gray-600">Solde restant</p>
-                                                            <p className="text-lg font-bold text-orange-600">
-                                                                {client.remainingAmount?.toLocaleString('fr-DZ')} DZD
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="flex space-x-3">
-                                                    <Button 
-                                                        className="bg-orange-600 hover:bg-orange-700 text-white"
-                                                        onClick={() => window.location.href = '/payment?clientId=' + client.id}
-                                                    >
-                                                        <CreditCard className="h-4 w-4 mr-2" />
-                                                        Payer maintenant
-                                                    </Button>
-                                                    <Button 
-                                                        variant="outline"
-                                                        className="border-orange-300 text-orange-700 hover:bg-orange-100"
-                                                    >
-                                                        Plus tard
-                                                    </Button>
-                                                </div>
+                                                {stage.notes && stageStatus !== 'pending' && (
+                                                    <p className="text-sm text-slate-500 mt-1">{stage.notes}</p>
+                                                )}
                                             </div>
                                         </div>
-                                    </CardContent>
-                                </Card>
+                                    )
+                                })}
                             </div>
-                        ) : null
-                    })()
-                )}
+                        ) : (
+                            <div className="text-center py-8 text-slate-500">
+                                <Clock className="h-8 w-8 mx-auto mb-2 text-slate-400" />
+                                <p>Votre dossier est en cours de traitement</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
-                {/* Section supplémentaire - Aide et contact */}
-                <div className="mt-8">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Besoin d'aide ?</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                                    <Mail className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-                                    <h3 className="font-medium text-blue-900">Support Email</h3>
-                                    <p className="text-sm text-blue-700">contact@nch-community.online</p>
+                {/* Payment Reminder */}
+                {client.paymentStatus === 'partially_paid' && client.remainingAmount && client.remainingAmount > 0 && (
+                    <Card className="border-2 border-orange-300 bg-orange-50">
+                        <CardContent className="p-6">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <CreditCard className="h-6 w-6 text-white" />
                                 </div>
-
-                                <div className="text-center p-4 bg-green-50 rounded-lg">
-                                    <Phone className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                                    <h3 className="font-medium text-green-900">Support Téléphone</h3>
-                                    <p className="text-sm text-green-700">+213 5 51 56 51 08</p>
-                                </div>
-
-                                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                                    <a href="/doc.pdf" download="nch_doc.pdf">
-                                        <FileText className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                                        <h3 className="font-medium text-purple-900">Documentation</h3>
-                                        <p className="text-sm text-purple-700">Guide utilisateur</p>
-                                    </a>
+                                <div className="flex-1">
+                                    <h3 className="font-semibold text-orange-900 mb-1">Solde restant</h3>
+                                    <p className="text-2xl font-bold text-orange-700 mb-3">
+                                        {client.remainingAmount.toLocaleString('fr-DZ')} DZD
+                                    </p>
+                                    <Button 
+                                        className="bg-orange-600 hover:bg-orange-700"
+                                        onClick={() => router.push('/payment?clientId=' + client.id)}
+                                    >
+                                        Payer maintenant
+                                    </Button>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
-                </div>
+                )}
+
+                {/* Help */}
+                <Card className="border-0 shadow-sm">
+                    <CardContent className="p-6">
+                        <h2 className="text-lg font-semibold text-slate-900 mb-4">Besoin d'aide ?</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <a 
+                                href="mailto:contact@nch-community.online" 
+                                className="flex items-center gap-3 p-4 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors"
+                            >
+                                <Mail className="h-5 w-5 text-[#042d8e]" />
+                                <div>
+                                    <p className="text-sm text-slate-500">Email</p>
+                                    <p className="font-medium text-slate-800">contact@nch-community.online</p>
+                                </div>
+                            </a>
+                            <a 
+                                href="tel:+213551565108" 
+                                className="flex items-center gap-3 p-4 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors"
+                            >
+                                <Phone className="h-5 w-5 text-[#042d8e]" />
+                                <div>
+                                    <p className="text-sm text-slate-500">Téléphone</p>
+                                    <p className="font-medium text-slate-800">+213 5 51 56 51 08</p>
+                                </div>
+                            </a>
+                        </div>
+                    </CardContent>
+                </Card>
             </main>
         </div>
     )

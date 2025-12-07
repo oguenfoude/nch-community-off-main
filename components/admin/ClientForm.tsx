@@ -11,9 +11,10 @@ interface ClientFormProps {
     client?: Client | null
     onSubmit: (client: any) => void
     onCancel: () => void
+    isSubmitting?: boolean
 }
 
-export default function ClientForm({ client, onSubmit, onCancel }: ClientFormProps) {
+export default function ClientForm({ client, onSubmit, onCancel, isSubmitting }: ClientFormProps) {
     const [formData, setFormData] = useState({
         id: client?.id || "",
         firstName: client?.firstName || "",

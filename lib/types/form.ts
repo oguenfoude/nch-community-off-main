@@ -42,6 +42,7 @@ export type DocumentType = 'id' | 'diploma' | 'workCertificate' | 'photo'
 export type Language = 'fr' | 'ar'
 export type PaymentMethod = 'cib' | 'edahabia' | 'baridimob'
 export type PaymentType = 'full' | 'partial'
+export type OfferType = 'basic' | 'premium' | 'gold'
 
 // ✅ NEW: Pending files before upload (raw File objects)
 export interface PendingFiles {

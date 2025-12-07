@@ -1,5 +1,4 @@
 // components/forms/registration/RegistrationForm.tsx
-import { generateClientFolderName } from '@/lib/utils/clientFolder'
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,7 +7,6 @@ import { BasicInfoStep } from './steps/BasicInfoStep'
 import { DocumentsStep } from './steps/DocumentStep'
 import { OffersStep } from './steps/OffersStep'
 import { PaymentStep } from './steps/PaymentStep'
-import { ErrorAlert } from '@/components/common/ErrorAlerts'
 import { useMultiStep } from '@/hooks/useMutltiStep'
 import { useFormValidation } from '@/hooks/useFormValidation'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -26,7 +24,7 @@ type RegistrationOptions = {
 
 const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOptions) => {
     const t = useTranslation(language)
-    const { currentStep, nextStep, prevStep, isFirstStep, isLastStep } = useMultiStep(4)
+    const { currentStep, nextStep, prevStep, goToStep, isFirstStep, isLastStep } = useMultiStep(4)
     const { errors, setErrors, validateAll } = useFormValidation(language)
     const { uploadFile } = useFileUpload()
     const [showProcessingScreen, setShowProcessingScreen] = useState(false)
@@ -81,6 +79,15 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
 
     const updateFormData = (updates: Partial<FormData>) => {
         setFormData(prev => ({ ...prev, ...updates }))
+        // Clear related errors when user starts typing
+        const fieldsToUpdate = Object.keys(updates)
+        if (fieldsToUpdate.length > 0 && Object.keys(errors).length > 0) {
+            const newErrors = { ...errors }
+            fieldsToUpdate.forEach(field => {
+                delete newErrors[field as keyof typeof newErrors]
+            })
+            setErrors(newErrors)
+        }
     }
 
     // ✅ Handler for pending file changes (deferred mode)
@@ -89,6 +96,18 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
             ...prev,
             [field]: file
         }))
+        // Clear document errors when file is selected
+        if (file && errors.documents) {
+            const newErrors = { ...errors }
+            delete newErrors.documents
+            setErrors(newErrors)
+        }
+        // Clear receipt error when receipt is selected
+        if (field === 'paymentReceipt' && file && errors.paymentReceipt) {
+            const newErrors = { ...errors }
+            delete newErrors.paymentReceipt
+            setErrors(newErrors)
+        }
     }
 
     // ✅ Upload all pending files to Cloudinary (documents + payment receipt)
@@ -222,6 +241,9 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
         console.log('📋 Form data:', formData)
         console.log('📁 Pending files:', pendingFiles)
         
+        // Show initial loading state
+        setShowProcessingScreen(false)
+        
         // Validate ALL sections at once
         const { isValid, allErrors } = validateAll(formData, pendingFiles)
         
@@ -230,20 +252,54 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
         if (!isValid) {
             // Find which step has errors and navigate there
             const errorStep = getStepWithErrors(allErrors)
-            
-            // Show user-friendly error message
             const errorCount = Object.keys(allErrors).length
-            const stepName = errorStep !== null ? stepTitles[errorStep] : ''
             
-            if (errorStep !== null && errorStep !== currentStep) {
-                // Navigate to the step with errors
-                while (currentStep > errorStep) {
-                    prevStep()
-                }
-                toast.error(`${errorCount} erreur(s) à corriger dans "${stepName}"`)
-            } else {
-                toast.error(`Veuillez corriger les ${errorCount} erreur(s) sur cette page`)
+            // Create descriptive error message with field names
+            const errorFields = Object.keys(allErrors)
+            const fieldLabels: Record<string, { fr: string, ar: string }> = {
+                firstName: { fr: 'Prénom', ar: 'الاسم' },
+                lastName: { fr: 'Nom', ar: 'اللقب' },
+                phone: { fr: 'Téléphone', ar: 'الهاتف' },
+                email: { fr: 'Email', ar: 'البريد' },
+                wilaya: { fr: 'Wilaya', ar: 'الولاية' },
+                diploma: { fr: 'Diplôme', ar: 'الشهادة' },
+                selectedCountries: { fr: 'Pays', ar: 'البلدان' },
+                documents: { fr: 'Documents', ar: 'الوثائق' },
+                selectedOffer: { fr: 'Offre', ar: 'العرض' },
+                paymentMethod: { fr: 'Paiement', ar: 'الدفع' },
+                paymentType: { fr: 'Type de paiement', ar: 'نوع الدفع' },
+                paymentReceipt: { fr: 'Reçu', ar: 'الإيصال' },
             }
+            
+            const missingFields = errorFields
+                .map(field => fieldLabels[field]?.[language] || field)
+                .slice(0, 3) // Show max 3 fields
+            
+            const moreCount = errorCount > 3 ? errorCount - 3 : 0
+            const fieldsList = missingFields.join(', ') + (moreCount > 0 ? ` (+${moreCount})` : '')
+            
+            // Navigate to the error step
+            if (errorStep !== null && errorStep !== currentStep) {
+                goToStep(errorStep)
+            }
+            
+            // Show detailed toast with field names
+            toast.error(
+                language === 'fr'
+                    ? `❌ Champs manquants : ${fieldsList}`
+                    : `❌ حقول ناقصة : ${fieldsList}`,
+                {
+                    duration: 6000,
+                    description: language === 'fr' 
+                        ? "Les champs en rouge sont obligatoires"
+                        : "الحقول باللون الأحمر مطلوبة",
+                    style: {
+                        background: '#FEE2E2',
+                        border: '1px solid #EF4444',
+                        color: '#991B1B'
+                    }
+                }
+            )
             
             console.error('❌ Validation errors:', allErrors)
             return
@@ -263,12 +319,15 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
             ...formData,
             documents: {
                 ...formData.documents,
-                ...uploadResult.documents
+                ...uploadResult.documents,
+                // ✅ Include payment receipt in documents for Google Sheets
+                paymentReceipt: uploadResult.paymentReceipt || formData.paymentReceipt || null
             },
             paymentReceipt: uploadResult.paymentReceipt || formData.paymentReceipt
         }
 
         console.log('📨 Submitting final form data:', finalFormData)
+        console.log('📎 Payment receipt:', finalFormData.documents.paymentReceipt)
 
         // Show processing screen for BaridiMob
         if (formData.paymentMethod === 'baridimob') {
@@ -285,8 +344,6 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
         t.steps.step3,
         t.steps.step4,
     ]
-
-    const hasErrors = Object.keys(errors).length > 0
 
     // ✅ Processing Screen for BaridiMob
     if (showProcessingScreen) {
@@ -344,9 +401,35 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
         )
     }
 
+    // Check if there are any errors
+    const hasErrors = Object.keys(errors).length > 0
+
     return (
         <div className="w-full max-w-4xl mx-auto">
             <StepIndicator currentStep={currentStep} steps={stepTitles} />
+
+            {/* Error Summary Banner */}
+            {hasErrors && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">!</span>
+                    </div>
+                    <div>
+                        <p className="font-semibold text-red-800">
+                            {language === 'fr' 
+                                ? `${Object.keys(errors).length} champ(s) à corriger`
+                                : `${Object.keys(errors).length} حقول للتصحيح`
+                            }
+                        </p>
+                        <p className="text-sm text-red-600 mt-1">
+                            {language === 'fr'
+                                ? 'Veuillez remplir les champs marqués en rouge'
+                                : 'يرجى ملء الحقول المميزة باللون الأحمر'
+                            }
+                        </p>
+                    </div>
+                </div>
+            )}
 
             <Card>
                 <CardHeader className="pb-4 sm:pb-6">
@@ -356,15 +439,10 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
                 </CardHeader>
 
                 <CardContent className="space-y-4 sm:space-y-6">
-                    {/* Show errors only on last step after submit attempt */}
-                    {hasErrors && isLastStep && (
-                        <ErrorAlert message="Veuillez corriger les erreurs avant de soumettre." />
-                    )}
-
                     {currentStep === STEPS.BASIC_INFO && (
                         <BasicInfoStep
                             formData={formData}
-                            errors={isLastStep ? errors : {}}
+                            errors={errors}
                             translations={t}
                             onChange={updateFormData}
                         />
@@ -373,7 +451,7 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
                     {currentStep === STEPS.DOCUMENTS && (
                         <DocumentsStep
                             mode="deferred"
-                            errors={isLastStep ? errors : {}}
+                            errors={errors}
                             translations={t}
                             pendingFiles={pendingFiles}
                             onPendingFileChange={handlePendingFileChange}
@@ -383,7 +461,7 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
                     {currentStep === STEPS.OFFERS && (
                         <OffersStep
                             formData={formData}
-                            errors={isLastStep ? errors : {}}
+                            errors={errors}
                             translations={t}
                             onChange={updateFormData}
                         />
