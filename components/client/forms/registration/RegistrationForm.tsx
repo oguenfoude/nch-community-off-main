@@ -28,8 +28,6 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
     const { errors, setErrors, validateAll } = useFormValidation(language)
     const { uploadFile } = useFileUpload()
     const [showProcessingScreen, setShowProcessingScreen] = useState(false)
-    const [isUploadingFiles, setIsUploadingFiles] = useState(false)
-    const [uploadProgress, setUploadProgress] = useState<string>('')
 
     const [clientFolderId] = useState(() => {
         const timestamp = Date.now()
@@ -67,6 +65,15 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
         paymentReceipt: null,
     })
 
+    // ✅ Track auto-uploaded files (already on Cloudinary)
+    const [uploadedFiles, setUploadedFiles] = useState<Partial<Record<keyof PendingFiles, UploadedFile | null>>>({
+        id: null,
+        diploma: null,
+        workCertificate: null,
+        photo: null,
+        paymentReceipt: null,
+    })
+
     // Generate a client folder name for Cloudinary
     const getClientFolderId = (): string => {
         if (formData.firstName && formData.lastName) {
@@ -90,12 +97,24 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
         }
     }
 
-    // ✅ Handler for pending file changes (deferred mode)
-    const handlePendingFileChange = (field: keyof PendingFiles, file: File | null) => {
+    // ✅ Handler for pending file changes with auto-upload support (deferred mode)
+    const handlePendingFileChange = (
+        field: keyof PendingFiles, 
+        file: File | null, 
+        uploadedInfo: UploadedFile | null = null
+    ) => {
+        // Update the File object state
         setPendingFiles(prev => ({
             ...prev,
             [field]: file
         }))
+        
+        // Update the uploaded file info state
+        setUploadedFiles(prev => ({
+            ...prev,
+            [field]: uploadedInfo
+        }))
+        
         // Clear document errors when file is selected
         if (file && errors.documents) {
             const newErrors = { ...errors }
@@ -110,93 +129,33 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
         }
     }
 
-    // ✅ Upload all pending files to Cloudinary (documents + payment receipt)
-    const uploadPendingFiles = async (): Promise<{
+    // ✅ Prepare uploaded files for submission (files already uploaded via auto-upload)
+    const prepareUploadedFiles = (): {
         documents: Partial<FormData['documents']>,
         paymentReceipt: UploadedFile | null
-    } | null> => {
-        // Separate document files from payment receipt
-        const docFiles = Object.entries(pendingFiles)
-            .filter(([key, file]) => file !== null && key !== 'paymentReceipt')
-        
-        const receiptFile = pendingFiles.paymentReceipt
-        
-        // Check if we have required documents
-        if (docFiles.length === 0 && !pendingFiles.id && !pendingFiles.diploma && !pendingFiles.photo) {
+    } | null => {
+        // Check if we have required documents (already uploaded)
+        if (!uploadedFiles.id || !uploadedFiles.diploma || !uploadedFiles.photo) {
             toast.error('Veuillez sélectionner les documents requis')
             return null
         }
 
-        setIsUploadingFiles(true)
+        // Assemble documents from auto-uploaded files
         const uploadedDocs: Partial<FormData['documents']> = {}
-        let uploadedReceipt: UploadedFile | null = null
-        const cloudinaryFolder = getClientFolderId()
-
-        try {
-            // Upload document files
-            for (const [field, file] of docFiles) {
-                if (!file) continue
-                
-                setUploadProgress(`Téléchargement: ${file.name}...`)
-                
-                const result = await uploadFile(
-                    file,
-                    field as 'id' | 'diploma' | 'workCertificate' | 'photo',
-                    cloudinaryFolder,
-                    undefined
-                )
-
-                if (result) {
-                    uploadedDocs[field as keyof FormData['documents']] = {
-                        fileId: result.file.fileId,
-                        url: result.file.url,
-                        downloadUrl: result.file.downloadUrl,
-                        name: result.file.name,
-                        size: result.file.size,
-                        type: result.file.type
-                    } as UploadedFile
-                } else {
-                    throw new Error(`Échec du téléchargement de ${file.name}`)
-                }
+        
+        const docFields: (keyof PendingFiles)[] = ['id', 'diploma', 'workCertificate', 'photo']
+        for (const field of docFields) {
+            if (uploadedFiles[field]) {
+                uploadedDocs[field as keyof FormData['documents']] = uploadedFiles[field] as UploadedFile
             }
+        }
 
-            // Upload payment receipt if exists (for BaridiMob)
-            if (receiptFile) {
-                setUploadProgress(`Téléchargement: ${receiptFile.name}...`)
-                
-                const result = await uploadFile(
-                    receiptFile,
-                    'photo', // Use 'photo' type for receipt (just for the upload)
-                    cloudinaryFolder,
-                    undefined
-                )
+        // Get payment receipt if exists (for BaridiMob)
+        const uploadedReceipt = uploadedFiles.paymentReceipt || null
 
-                if (result) {
-                    uploadedReceipt = {
-                        fileId: result.file.fileId,
-                        url: result.file.url,
-                        downloadUrl: result.file.downloadUrl,
-                        name: result.file.name,
-                        size: result.file.size,
-                        type: result.file.type
-                    }
-                } else {
-                    throw new Error(`Échec du téléchargement du reçu de paiement`)
-                }
-            }
-
-            setUploadProgress('')
-            return {
-                documents: uploadedDocs,
-                paymentReceipt: uploadedReceipt
-            }
-        } catch (error) {
-            console.error('Upload error:', error)
-            toast.error('Erreur lors du téléchargement des fichiers')
-            setUploadProgress('')
-            return null
-        } finally {
-            setIsUploadingFiles(false)
+        return {
+            documents: uploadedDocs,
+            paymentReceipt: uploadedReceipt
         }
     }
 
@@ -305,14 +264,14 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
             return
         }
 
-        console.log('📤 Uploading files...')
-        // Upload pending files first and get the uploaded docs
-        const uploadResult = await uploadPendingFiles()
+        console.log('📤 Preparing uploaded files...')
+        // Get already auto-uploaded files
+        const uploadResult = prepareUploadedFiles()
         if (!uploadResult) {
-            console.error('❌ File upload failed')
+            console.error('❌ File preparation failed - missing required documents')
             return
         }
-        console.log('✅ Files uploaded:', uploadResult)
+        console.log('✅ Files prepared:', uploadResult)
 
         // Create final form data with uploaded documents and payment receipt
         const finalFormData: FormData = {
@@ -454,6 +413,7 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
                             errors={errors}
                             translations={t}
                             pendingFiles={pendingFiles}
+                            uploadedFiles={uploadedFiles}
                             onPendingFileChange={handlePendingFileChange}
                         />
                     )}
@@ -474,21 +434,9 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
                             translations={t}
                             onChange={updateFormData}
                             pendingReceiptFile={pendingFiles.paymentReceipt}
-                            onPendingReceiptChange={(file) => handlePendingFileChange('paymentReceipt', file)}
+                            uploadedReceiptFile={uploadedFiles.paymentReceipt || null}
+                            onPendingReceiptChange={(file, uploadedInfo) => handlePendingFileChange('paymentReceipt', file, uploadedInfo)}
                         />
-                    )}
-
-                    {/* Upload Progress */}
-                    {isUploadingFiles && (
-                        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <Loader2 className="h-6 w-6 text-blue-600 animate-spin" />
-                            <div>
-                                <p className="font-medium text-blue-900">
-                                    Téléchargement des fichiers...
-                                </p>
-                                <p className="text-sm text-blue-700">{uploadProgress}</p>
-                            </div>
-                        </div>
                     )}
 
                     {/* Navigation Buttons */}
@@ -496,7 +444,7 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
                         <Button
                             variant="outline"
                             onClick={handlePrevious}
-                            disabled={isFirstStep || isSubmitting || isUploadingFiles}
+                            disabled={isFirstStep || isSubmitting}
                             className="text-base sm:text-lg font-semibold bg-transparent w-full sm:w-auto order-2 sm:order-1"
                         >
                             {t.previous}
@@ -505,15 +453,10 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
                         {isLastStep ? (
                             <Button
                                 onClick={handleSubmit}
-                                disabled={isSubmitting || isUploadingFiles}
+                                disabled={isSubmitting}
                                 className="bg-nch-primary hover:bg-nch-primary-dark text-base sm:text-lg font-semibold w-full sm:w-auto order-1 sm:order-2"
                             >
-                                {isUploadingFiles ? (
-                                    <>
-                                        <Upload className="w-5 h-5 mr-2 animate-bounce" />
-                                        Téléchargement...
-                                    </>
-                                ) : isSubmitting ? (
+                                {isSubmitting ? (
                                     <>
                                         <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                         {t.submitting}
