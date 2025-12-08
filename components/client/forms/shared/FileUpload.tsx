@@ -8,12 +8,11 @@ import { DocumentType, UploadedFile } from '@/lib/types/form'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 
-// ✅ Props for DEFERRED mode (new single-page form with auto-upload)
+// ✅ Props for DEFERRED mode (new single-page form)
 interface DeferredModeProps {
   mode: 'deferred'
   pendingFile: File | null
-  uploadedFileInfo: UploadedFile | null  // ✅ NEW: Store uploaded file info
-  onFileSelect: (file: File | null, uploadedInfo: UploadedFile | null) => void  // ✅ UPDATED
+  onFileSelect: (file: File | null) => void
   // Not needed in deferred mode
   clientFolder?: never
   clientFolderId?: never
@@ -66,12 +65,11 @@ export const FileUpload = (props: FileUploadProps) => {
     return `${(bytes / 1024 / 1024).toFixed(2)} MB`
   }
 
-  // ✅ DEFERRED MODE: Auto-upload immediately when file selected
+  // ✅ DEFERRED MODE: Store file locally, no upload
   if (mode === 'deferred') {
-    const { pendingFile, uploadedFileInfo, onFileSelect } = props as DeferredModeProps & CommonProps
-    const [isAutoUploading, setIsAutoUploading] = useState(false)
+    const { pendingFile, onFileSelect } = props as DeferredModeProps & CommonProps
 
-    const handleFileSelect = async (selectedFile: File | null) => {
+    const handleFileSelect = (selectedFile: File | null) => {
       if (!selectedFile || disabled) return
 
       // Validate file type
@@ -87,53 +85,12 @@ export const FileUpload = (props: FileUploadProps) => {
         return
       }
 
-      // ✅ AUTO-UPLOAD: Upload to Cloudinary immediately
-      setIsAutoUploading(true)
-      toast.loading(`📤 Upload en cours: ${selectedFile.name}...`, { id: `upload-${field}` })
-
-      try {
-        const uploadResult = await uploadFile(
-          selectedFile,
-          field,
-          `nch-community/temp-uploads`,  // Temp folder for auto-uploads
-          undefined
-        )
-
-        if (uploadResult) {
-          // Store both the File and the uploaded file info
-          onFileSelect(selectedFile, uploadResult.file)
-          
-          // Save to localStorage as backup
-          try {
-            const existingDrafts = JSON.parse(localStorage.getItem('nch_upload_drafts') || '{}')
-            existingDrafts[field] = uploadResult.file
-            localStorage.setItem('nch_upload_drafts', JSON.stringify(existingDrafts))
-          } catch (e) {
-            console.error('Failed to save to localStorage:', e)
-          }
-
-          toast.success(`✅ ${selectedFile.name} uploadé avec succès!`, { id: `upload-${field}` })
-        } else {
-          toast.error(`❌ Échec de l'upload de ${selectedFile.name}`, { id: `upload-${field}` })
-        }
-      } catch (error) {
-        console.error('Auto-upload error:', error)
-        toast.error(`❌ Erreur: ${selectedFile.name}`, { id: `upload-${field}` })
-      } finally {
-        setIsAutoUploading(false)
-      }
+      onFileSelect(selectedFile)
+      toast.success(`Fichier sélectionné: ${selectedFile.name}`)
     }
 
     const handleRemove = () => {
-      onFileSelect(null, null)
-      // Remove from localStorage
-      try {
-        const existingDrafts = JSON.parse(localStorage.getItem('nch_upload_drafts') || '{}')
-        delete existingDrafts[field]
-        localStorage.setItem('nch_upload_drafts', JSON.stringify(existingDrafts))
-      } catch (e) {
-        console.error('Failed to remove from localStorage:', e)
-      }
+      onFileSelect(null)
     }
 
     return (
@@ -143,22 +100,20 @@ export const FileUpload = (props: FileUploadProps) => {
           {label}
         </Label>
 
-        {isAutoUploading && <LoadingOverlay message={`Upload de ${label} en cours...`} />}
-
         <label
           htmlFor={inputId}
           className={`block cursor-pointer border-2 border-dashed rounded-lg p-4 sm:p-6 text-center transition-colors ${
-            uploadedFileInfo || pendingFile
+            pendingFile 
               ? 'border-green-400 bg-green-50' 
               : 'border-gray-300 hover:border-nch-primary'
-          } ${disabled || isAutoUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          {!pendingFile && !uploadedFileInfo ? (
+          {!pendingFile ? (
             <>
               <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
               <p className="mt-2 text-xs sm:text-sm text-gray-600">Cliquez pour sélectionner</p>
               <p className="text-xs text-gray-500">PDF, JPG, PNG (max. 10MB)</p>
-              <p className="text-xs text-blue-600 mt-1 font-medium">✨ Upload automatique immédiat</p>
+              <p className="text-xs text-orange-500 mt-1">📎 Sera uploadé lors de la confirmation</p>
             </>
           ) : (
             <div className="space-y-3">
@@ -168,18 +123,14 @@ export const FileUpload = (props: FileUploadProps) => {
               </div>
               <div className="flex flex-col items-center gap-1">
                 <p className="text-sm text-green-700 font-medium break-all">
-                  ✅ {pendingFile?.name}
+                  📎 {pendingFile.name}
                 </p>
-                {pendingFile && (
-                  <p className="text-xs text-gray-500">
-                    {formatFileSize(pendingFile.size)}
-                  </p>
-                )}
-                {uploadedFileInfo && (
-                  <p className="text-xs text-green-600 font-medium">
-                    ☁️ Sauvegardé sur le cloud
-                  </p>
-                )}
+                <p className="text-xs text-gray-500">
+                  {formatFileSize(pendingFile.size)}
+                </p>
+                <p className="text-xs text-orange-600 font-medium">
+                  ⏳ Prêt pour upload
+                </p>
               </div>
               <Button
                 type="button"
@@ -190,7 +141,6 @@ export const FileUpload = (props: FileUploadProps) => {
                   e.stopPropagation()
                   handleRemove()
                 }}
-                disabled={isAutoUploading}
                 className="mt-2 text-red-600 border-red-200 hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4 mr-1" />

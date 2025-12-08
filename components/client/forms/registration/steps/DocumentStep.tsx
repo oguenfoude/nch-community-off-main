@@ -21,8 +21,7 @@ interface ImmediateModeProps {
 interface DeferredModeProps {
   mode: 'deferred'
   pendingFiles: PendingFiles
-  uploadedFiles: Partial<Record<keyof PendingFiles, UploadedFile | null>>
-  onPendingFileChange: (field: keyof PendingFiles, file: File | null, uploadedInfo: UploadedFile | null) => void
+  onPendingFileChange: (field: keyof PendingFiles, file: File | null) => void
   // Not used in deferred mode
   formData?: never
   onChange?: never
@@ -41,9 +40,9 @@ type DocumentsStepProps = CommonProps & (ImmediateModeProps | DeferredModeProps)
 export const DocumentsStep = (props: DocumentsStepProps) => {
   const { errors, translations: t, mode = 'immediate' } = props
 
-  // ✅ MODE DIFFÉRÉ: Sélection de fichiers locaux avec auto-upload
+  // ✅ MODE DIFFÉRÉ: Sélection de fichiers locaux
   if (mode === 'deferred') {
-    const { pendingFiles, uploadedFiles, onPendingFileChange } = props as DeferredModeProps & CommonProps
+    const { pendingFiles, onPendingFileChange } = props as DeferredModeProps & CommonProps
 
     // Count required documents
     const hasId = !!pendingFiles.id
@@ -71,8 +70,7 @@ export const DocumentsStep = (props: DocumentsStepProps) => {
             field="id"
             icon={<IdCard className="w-5 h-5" />}
             pendingFile={pendingFiles.id}
-            uploadedFileInfo={uploadedFiles.id || null}
-            onFileSelect={(file, uploadedInfo) => onPendingFileChange('id', file, uploadedInfo)}
+            onFileSelect={(file) => onPendingFileChange('id', file)}
             error={errors.documents_id}
             isRequired
           />
@@ -84,8 +82,7 @@ export const DocumentsStep = (props: DocumentsStepProps) => {
             field="diploma"
             icon={<GraduationCap className="w-5 h-5" />}
             pendingFile={pendingFiles.diploma}
-            uploadedFileInfo={uploadedFiles.diploma || null}
-            onFileSelect={(file, uploadedInfo) => onPendingFileChange('diploma', file, uploadedInfo)}
+            onFileSelect={(file) => onPendingFileChange('diploma', file)}
             error={errors.documents_diploma}
             isRequired
           />
@@ -97,8 +94,7 @@ export const DocumentsStep = (props: DocumentsStepProps) => {
             field="workCertificate"
             icon={<FileText className="w-5 h-5" />}
             pendingFile={pendingFiles.workCertificate}
-            uploadedFileInfo={uploadedFiles.workCertificate || null}
-            onFileSelect={(file, uploadedInfo) => onPendingFileChange('workCertificate', file, uploadedInfo)}
+            onFileSelect={(file) => onPendingFileChange('workCertificate', file)}
           />
 
           {/* Photo */}
@@ -108,8 +104,7 @@ export const DocumentsStep = (props: DocumentsStepProps) => {
             field="photo"
             icon={<Camera className="w-5 h-5" />}
             pendingFile={pendingFiles.photo}
-            uploadedFileInfo={uploadedFiles.photo || null}
-            onFileSelect={(file, uploadedInfo) => onPendingFileChange('photo', file, uploadedInfo)}
+            onFileSelect={(file) => onPendingFileChange('photo', file)}
             error={errors.documents_photo}
             isRequired
           />

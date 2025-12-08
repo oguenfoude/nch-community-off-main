@@ -1,13 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { Building2, Download, Upload, Copy, Check, FileText, CheckCircle, CreditCard, Wallet, Loader2 } from 'lucide-react'
-import { FormData as RegistrationFormData, FormErrors, PaymentMethod, UploadedFile } from '@/lib/types/form'
+import { Building2, Download, Upload, Copy, Check, FileText, CheckCircle, CreditCard, Wallet } from 'lucide-react'
+import { FormData as RegistrationFormData, FormErrors, PaymentMethod } from '@/lib/types/form'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ADMIN_PAYMENT_INFO } from '@/lib/constants/adminPayment'
 import { toast } from 'sonner'
-import { useFileUpload } from '@/hooks/useFileUpload'
 
 interface PaymentStepProps {
   formData: RegistrationFormData
@@ -15,8 +14,7 @@ interface PaymentStepProps {
   translations: any
   onChange: (data: Partial<RegistrationFormData>) => void
   pendingReceiptFile?: File | null
-  uploadedReceiptFile?: UploadedFile | null
-  onPendingReceiptChange?: (file: File | null, uploadedInfo: UploadedFile | null) => void
+  onPendingReceiptChange?: (file: File | null) => void
 }
 
 // Copy row component
@@ -51,14 +49,11 @@ export const PaymentStep = ({
   errors, 
   translations: t, 
   onChange, 
-  pendingReceiptFile,
-  uploadedReceiptFile,
+  pendingReceiptFile, 
   onPendingReceiptChange 
 }: PaymentStepProps) => {
   const [isDownloading, setIsDownloading] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
-  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false)
-  const { uploadFile } = useFileUpload()
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -154,7 +149,7 @@ export const PaymentStep = ({
     }
   }
 
-  const handleReceiptSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleReceiptSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -169,41 +164,7 @@ export const PaymentStep = ({
       return
     }
 
-    // ✅ AUTO-UPLOAD: Upload receipt immediately to Cloudinary
-    setIsUploadingReceipt(true)
-    toast.loading(`📤 Upload du reçu en cours...`, { id: 'receipt-upload' })
-
-    try {
-      const uploadResult = await uploadFile(
-        file,
-        'paymentReceipt',
-        `nch-community/temp-uploads`,
-        undefined
-      )
-
-      if (uploadResult) {
-        // Pass both File and UploadedFile info
-        onPendingReceiptChange?.(file, uploadResult.file)
-        
-        // Save to localStorage as backup
-        try {
-          const existingDrafts = JSON.parse(localStorage.getItem('nch_upload_drafts') || '{}')
-          existingDrafts.paymentReceipt = uploadResult.file
-          localStorage.setItem('nch_upload_drafts', JSON.stringify(existingDrafts))
-        } catch (e) {
-          console.error('Failed to save receipt to localStorage:', e)
-        }
-
-        toast.success(`✅ Reçu uploadé avec succès!`, { id: 'receipt-upload' })
-      } else {
-        toast.error(`❌ Échec de l'upload du reçu`, { id: 'receipt-upload' })
-      }
-    } catch (error) {
-      console.error('Receipt upload error:', error)
-      toast.error(`❌ Erreur lors de l'upload`, { id: 'receipt-upload' })
-    } finally {
-      setIsUploadingReceipt(false)
-    }
+    onPendingReceiptChange?.(file)
   }
 
   // Get price based on offer
@@ -381,8 +342,6 @@ export const PaymentStep = ({
               <h4 className="font-semibold text-gray-900">
                 Reçu de paiement <span className="text-red-500">*</span>
               </h4>
-              {isUploadingReceipt && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
-              {uploadedReceiptFile && <span className="text-xs text-green-600">☁️ Sauvegardé</span>}
             </div>
 
             <label className="block cursor-pointer">
@@ -390,14 +349,13 @@ export const PaymentStep = ({
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleReceiptSelect}
-                disabled={isUploadingReceipt}
                 className="hidden"
               />
               <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                 pendingReceiptFile 
                   ? 'border-green-400 bg-green-50' 
                   : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50'
-              } ${isUploadingReceipt ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              }`}>
                 {pendingReceiptFile ? (
                   <div className="flex items-center justify-center gap-2 text-green-700">
                     <CheckCircle className="h-5 w-5" />
@@ -408,15 +366,14 @@ export const PaymentStep = ({
                     <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-600">Cliquez pour téléverser</p>
                     <p className="text-xs text-gray-400 mt-1">PDF, JPG ou PNG (max 5MB)</p>
-                    <p className="text-xs text-blue-600 mt-2 font-medium">✨ Upload automatique immédiat</p>
                   </>
                 )}
               </div>
             </label>
 
-            {pendingReceiptFile && uploadedReceiptFile && (
+            {pendingReceiptFile && (
               <p className="text-sm text-green-600 mt-2 text-center">
-                ✓ Reçu sauvegardé sur le cloud
+                ✓ Fichier sélectionné, sera envoyé avec le formulaire
               </p>
             )}
           </div>
