@@ -202,12 +202,11 @@ export async function POST(request: NextRequest) {
             } else {
                 throw new Error(result.error || 'CIB transaction failed')
             }
-        } else if (paymentMethod === 'edahabia') {
-            // Add EDAHABIA logic here
-            paymentUrl = `${baseUrl}/payment/edahabia?token=${sessionToken}`
         } else if (paymentMethod === 'baridimob') {
-            // Add BaridiMob logic here
+            // BaridiMob - Manual payment with receipt upload
             paymentUrl = `${baseUrl}/payment/baridimob?token=${sessionToken}`
+        } else {
+            throw new Error('Invalid payment method. Only CIB and BaridiMob are supported.')
         }
 
         console.log('✅ Payment URL generated:', paymentUrl)

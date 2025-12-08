@@ -27,7 +27,7 @@ function generatePaymentToken(): string {
  */
 export async function initiateSecondPayment(
   clientId: string,
-  paymentMethod: 'cib' | 'edahabia'
+  paymentMethod: 'cib'
 ): Promise<PaymentResult> {
   // 1. Get client
   const client = await prisma.client.findUnique({

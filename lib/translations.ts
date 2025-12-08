@@ -109,11 +109,11 @@ export const translations = {
         payment: {
             title: "Choisissez votre méthode de paiement",
             cib: "Carte CIB",
-            edahabia: "Carte Edahabia",
+            baridimob: "CCP / BaridiMob",
             later: "Payer plus tard",
             descriptions: {
-                cib: "Paiement sécurisé par carte CIB",
-                edahabia: "Paiement par carte Edahabia",
+                cib: "Paiement sécurisé en ligne par carte CIB",
+                baridimob: "Virement CCP - Algérie Poste",
                 later: "Enregistrer le compte et payer ultérieurement",
             },
             typeTitle: "Choisissez votre mode de paiement", // FR
@@ -288,11 +288,11 @@ export const translations = {
         payment: {
             title: "اختر طريقة الدفع",
             cib: "بطاقة CIB",
-            edahabia: "بطاقة الذهبية",
+            baridimob: "CCP / باريدي موب",
             later: "ادفع لاحقاً",
             descriptions: {
-                cib: "دفع آمن ببطاقة CIB",
-                edahabia: "دفع ببطاقة الذهبية",
+                cib: "دفع آمن عبر الإنترنت ببطاقة CIB",
+                baridimob: "تحويل CCP - بريد الجزائر",
                 later: "حفظ الحساب والدفع لاحقاً",
             },
             typeTitle: "اختر طريقة الدفع", // AR

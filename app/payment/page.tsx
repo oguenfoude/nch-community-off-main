@@ -108,7 +108,7 @@ function PaymentContent() {
                         {/* Payment Methods */}
                         <div>
                             <h3 className="font-semibold text-gray-900 mb-4">Choisissez votre méthode de paiement</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <button
                                     onClick={() => setSelectedMethod('cib')}
                                     className={`p-4 border-2 rounded-lg transition-all ${
@@ -119,20 +119,7 @@ function PaymentContent() {
                                 >
                                     <CreditCard className="h-8 w-8 text-blue-600 mx-auto mb-2" />
                                     <p className="font-medium">CIB</p>
-                                    <p className="text-sm text-gray-600">Carte bancaire</p>
-                                </button>
-
-                                <button
-                                    onClick={() => setSelectedMethod('edahabia')}
-                                    className={`p-4 border-2 rounded-lg transition-all ${
-                                        selectedMethod === 'edahabia' 
-                                            ? 'border-green-500 bg-green-50' 
-                                            : 'border-gray-200 hover:border-gray-300'
-                                    }`}
-                                >
-                                    <Wallet className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                                    <p className="font-medium">EDAHABIA</p>
-                                    <p className="text-sm text-gray-600">Carte Edahabia</p>
+                                    <p className="text-sm text-gray-600">Carte bancaire - Paiement en ligne</p>
                                 </button>
 
                                 <button
@@ -145,7 +132,7 @@ function PaymentContent() {
                                 >
                                     <Clock className="h-8 w-8 text-orange-600 mx-auto mb-2" />
                                     <p className="font-medium">CCP / BARIDI MOB</p>
-                                    <p className="text-sm text-gray-600">Algérie Poste</p>
+                                    <p className="text-sm text-gray-600">Virement CCP - Algérie Poste</p>
                                 </button>
                             </div>
                         </div>

@@ -44,7 +44,7 @@ function generateSessionToken(prefix: string = 'reg'): string {
 }
 
 /**
- * Make CIB/Edahabia transaction via SofizPay
+ * Make CIB transaction via SofizPay
  */
 async function initiateSofizPayTransaction(params: {
   amount: number
@@ -84,7 +84,7 @@ async function initiateSofizPayTransaction(params: {
 }
 
 /**
- * Register client with CIB/Edahabia payment
+ * Register client with CIB payment
  * Creates PendingRegistration and redirects to SofizPay
  */
 export async function registerWithCardPayment(

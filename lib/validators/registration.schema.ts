@@ -43,7 +43,7 @@ export const registrationSchema = z.object({
   selectedOffer: z.enum(['basic', 'premium', 'gold'], {
     errorMap: () => ({ message: 'Offre invalide' })
   }),
-  paymentMethod: z.enum(['cib', 'edahabia', 'baridimob'], {
+  paymentMethod: z.enum(['cib', 'baridimob'], {
     errorMap: () => ({ message: 'Méthode de paiement invalide' })
   }),
   

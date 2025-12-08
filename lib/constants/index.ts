@@ -60,8 +60,7 @@ export const STEPS = {
 
 export const PAYMENT_METHODS = {
   CIB: 'cib',
-  EDAHABIA: 'edahabia',
-  BARIDIMOB: 'baridimob'
+  BARIDIMOB: 'baridimob',
 } as const
 
 // Re-export pricing constants

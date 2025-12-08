@@ -56,7 +56,7 @@ model Payment {
   
   // Payment details
   paymentType       String   // 'initial' or 'second'
-  paymentMethod     String   // 'cib', 'edahabia', 'baridimob'
+  paymentMethod     String   // 'cib' or 'baridimob'
   amount            Float
   status            String   @default("pending") // pending, verified, failed
   
@@ -97,7 +97,7 @@ model Admin {
 }
 
 // ============================================
-// PENDING REGISTRATION - For CIB/Edahabia/BaridiMob awaiting completion
+// PENDING REGISTRATION - For CIB/BaridiMob awaiting completion
 // ============================================
 model PendingRegistration {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId

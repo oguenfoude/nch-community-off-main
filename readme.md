@@ -15,7 +15,7 @@ NCH Community is a modern web application built for managing client registration
 - **🔐 Dual Authentication System** - Separate login flows for clients and administrators
 - **📋 Multi-Step Registration** - Guided 4-step registration process with validation
 - **📁 Document Management** - Secure document upload with Cloudinary integration
-- **💰 Payment Processing** - Multiple payment methods (CIB, Edahabia, BaridiMob, SofizPay)
+- **💰 Payment Processing** - Multiple payment methods (CIB, BaridiMob, SofizPay)
 - **👥 Admin Dashboard** - Comprehensive client management with search, filters, and status tracking
 - **🌐 Multilingual Support** - French and Arabic language support
 - **📱 Responsive Design** - Mobile-first approach with Tailwind CSS
@@ -219,7 +219,7 @@ model Payment {
   id                String   @id @default(auto()) @map("_id") @db.ObjectId
   clientId          String   @db.ObjectId
   paymentType       String   // 'initial' or 'second'
-  paymentMethod     String   // 'cib', 'edahabia', 'baridimob'
+  paymentMethod     String   // 'cib', 'baridimob'
   amount            Float
   status            String   @default("pending")
   receiptUrl        String?

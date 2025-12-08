@@ -46,7 +46,7 @@ export type PaymentCallbackInput = z.infer<typeof paymentCallbackSchema>
 
 export const secondPaymentSchema = z.object({
   clientId: z.string().min(1, 'ID client requis'),
-  paymentMethod: z.enum(['cib', 'edahabia']),
+  paymentMethod: z.enum(['cib']),
 })
 
 export type SecondPaymentInput = z.infer<typeof secondPaymentSchema>

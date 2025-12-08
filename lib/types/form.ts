@@ -40,7 +40,7 @@ export interface FormData {
 
 export type DocumentType = 'id' | 'diploma' | 'workCertificate' | 'photo'
 export type Language = 'fr' | 'ar'
-export type PaymentMethod = 'cib' | 'edahabia' | 'baridimob'
+export type PaymentMethod = 'cib' | 'baridimob'
 export type PaymentType = 'full' | 'partial'
 export type OfferType = 'basic' | 'premium' | 'gold'
 

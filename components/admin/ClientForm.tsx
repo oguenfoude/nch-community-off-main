@@ -212,7 +212,7 @@ export default function ClientForm({ client, onSubmit, onCancel, isSubmitting }:
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="cib">Carte CIB</SelectItem>
-                            <SelectItem value="edahabia">Carte Edahabia</SelectItem>
+                            <SelectItem value="baridimob">CCP / BaridiMob</SelectItem>
                             <SelectItem value="later">Payer plus tard</SelectItem>
                         </SelectContent>
                     </Select>

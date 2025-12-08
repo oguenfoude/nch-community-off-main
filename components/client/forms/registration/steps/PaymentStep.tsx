@@ -77,22 +77,29 @@ export const PaymentStep = ({
   }
 
   const selectPaymentMethod = (method: PaymentMethod) => {
-    if (method !== 'baridimob') {
-      toast.error('Cette méthode de paiement n\'est pas disponible pour le moment.')
+    // CIB and BaridiMob are supported
+    if (method === 'cib') {
+      onChange({ 
+        paymentMethod: 'cib',
+        paymentType: formData.paymentType || 'full',
+      })
       return
     }
     
-    onChange({ 
-      paymentMethod: method,
-      paymentType: formData.paymentType || 'full',
-      baridiMobInfo: {
-        fullName: ADMIN_PAYMENT_INFO.fullName,
-        wilaya: ADMIN_PAYMENT_INFO.wilaya,
-        rip: ADMIN_PAYMENT_INFO.rip,
-        ccp: ADMIN_PAYMENT_INFO.ccp,
-        key: ADMIN_PAYMENT_INFO.key
-      }
-    })
+    if (method === 'baridimob') {
+      onChange({ 
+        paymentMethod: 'baridimob',
+        paymentType: formData.paymentType || 'full',
+        baridiMobInfo: {
+          fullName: ADMIN_PAYMENT_INFO.fullName,
+          wilaya: ADMIN_PAYMENT_INFO.wilaya,
+          rip: ADMIN_PAYMENT_INFO.rip,
+          ccp: ADMIN_PAYMENT_INFO.ccp,
+          key: ADMIN_PAYMENT_INFO.key
+        }
+      })
+      return
+    }
   }
 
   const downloadGuarantee = async () => {
@@ -204,33 +211,24 @@ export const PaymentStep = ({
         </div>
       </div>
 
-      {/* Payment Methods */}
-      <div className="grid grid-cols-3 gap-3">
-        {/* CIB - Disabled */}
-        <div className="relative opacity-50 cursor-not-allowed">
-          <div className="border-2 border-gray-200 rounded-xl p-4 text-center">
-            <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center mx-auto mb-2">
-              <CreditCard className="h-5 w-5 text-white" />
-            </div>
-            <p className="text-sm font-medium text-gray-500">CIB</p>
+      {/* Payment Methods - CIB and BaridiMob Only */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* CIB - Active */}
+        <button
+          type="button"
+          onClick={() => selectPaymentMethod('cib')}
+          className={`border-2 rounded-xl p-4 text-center transition-all ${
+            formData.paymentMethod === 'cib'
+              ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+              : 'border-gray-200 hover:border-blue-300'
+          }`}
+        >
+          <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+            <CreditCard className="h-5 w-5 text-white" />
           </div>
-          <span className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs px-2 py-0.5 rounded-full">
-            Bientôt
-          </span>
-        </div>
-
-        {/* Edahabia - Disabled */}
-        <div className="relative opacity-50 cursor-not-allowed">
-          <div className="border-2 border-gray-200 rounded-xl p-4 text-center">
-            <div className="w-10 h-10 bg-gray-300 rounded-lg flex items-center justify-center mx-auto mb-2">
-              <Wallet className="h-5 w-5 text-white" />
-            </div>
-            <p className="text-sm font-medium text-gray-500">Edahabia</p>
-          </div>
-          <span className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs px-2 py-0.5 rounded-full">
-            Bientôt
-          </span>
-        </div>
+          <p className="text-sm font-medium text-gray-900">Carte CIB</p>
+          <p className="text-xs text-gray-500 mt-1">Paiement en ligne sécurisé</p>
+        </button>
 
         {/* BaridiMob - Active */}
         <button
@@ -246,6 +244,7 @@ export const PaymentStep = ({
             <Building2 className="h-5 w-5 text-white" />
           </div>
           <p className="text-sm font-medium text-gray-900">CCP / BaridiMob</p>
+          <p className="text-xs text-gray-500 mt-1">Virement CCP</p>
         </button>
       </div>
 
