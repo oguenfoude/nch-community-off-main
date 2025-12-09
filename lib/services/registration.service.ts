@@ -159,7 +159,7 @@ export async function registerWithCardPayment(
 
 /**
  * Register client with BaridiMob payment
- * Creates PendingRegistration awaiting admin verification
+ * AUTO-APPROVED: Creates client account immediately
  */
 export async function registerWithBaridiMob(
   data: RegistrationInput,
@@ -173,35 +173,45 @@ export async function registerWithBaridiMob(
     }
   }
 
-  // 2. Generate password and session token
+  // 2. Generate password
   const password = generatePassword(data.firstName, data.lastName)
-  const sessionToken = generateSessionToken('baridimob')
 
   // 3. Calculate payment amount
   const amount = calculatePaymentAmount(data.selectedOffer, data.paymentType)
+  const remainingAmount = getRemainingAmount(data.selectedOffer, data.paymentType)
 
-  // 4. Save to PendingRegistration with special status
-  const pendingReg = await prisma.pendingRegistration.create({
-    data: {
-      sessionToken,
-      registrationData: {
-        ...data,
-        password,
-      },
-      paymentDetails: {
-        amount,
-        paymentType: data.paymentType,
-        paymentMethod: 'baridimob',
-        offer: data.selectedOffer,
-        baridiMobInfo: data.baridiMobInfo,
-        receiptUrl: receiptUrl || null,
-      },
-      status: 'pending_verification', // Awaiting admin approval
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+  // 4. Create client with payment record immediately (AUTO-APPROVED)
+  const { client, payment } = await createClientWithPayment(
+    {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone,
+      wilaya: data.wilaya,
+      diploma: data.diploma,
+      selectedOffer: data.selectedOffer,
+      paymentMethod: 'baridimob',
+      paymentType: data.paymentType || 'partial',
+      selectedCountries: data.selectedCountries || [],
+      documents: data.documents || {},
+      baridiMobInfo: data.baridiMobInfo,
+      password,
+    },
+    {
+      paymentType: 'initial',
+      amount,
+      remainingAmount,
+      paymentMethod: 'baridimob',
+      status: 'paid', // Mark as paid since BaridiMob receipt was uploaded
+      baridiMobInfo: data.baridiMobInfo ? {
+        phoneNumber: data.baridiMobInfo.phoneNumber || '',
+        receiptNumber: data.baridiMobInfo.receiptNumber || ''
+      } : null,
+      receiptUrl: receiptUrl || null,
     }
-  })
+  )
 
-  // 5. Sync to Google Sheets immediately (non-blocking)
+  // 5. Sync to Google Sheets (non-blocking)
   try {
     await appendClientToSheet({
       firstName: data.firstName,
@@ -214,8 +224,8 @@ export async function registerWithBaridiMob(
       selectedCountries: data.selectedCountries || [],
       paymentMethod: 'baridimob',
       paymentType: data.paymentType || 'partial',
-      paymentStatus: 'pending_verification',
-      baridiMobInfo: data.baridiMobInfo || null,
+      paymentStatus: 'paid',
+      baridiMobInfo: null,
       documents: data.documents || {},
       password: password,
       createdAt: new Date(),
@@ -228,7 +238,7 @@ export async function registerWithBaridiMob(
   return {
     success: true,
     paymentRequired: false,
-    pendingId: pendingReg.id,
+    clientId: client.id,
     credentials: { email: data.email, password },
   }
 }

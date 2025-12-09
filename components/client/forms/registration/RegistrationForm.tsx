@@ -319,15 +319,13 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
             ...formData,
             documents: {
                 ...formData.documents,
-                ...uploadResult.documents,
-                // ✅ Include payment receipt in documents for Google Sheets
-                paymentReceipt: uploadResult.paymentReceipt || formData.paymentReceipt || null
+                ...uploadResult.documents
             },
             paymentReceipt: uploadResult.paymentReceipt || formData.paymentReceipt
         }
 
         console.log('📨 Submitting final form data:', finalFormData)
-        console.log('📎 Payment receipt:', finalFormData.documents.paymentReceipt)
+        console.log('📎 Payment receipt:', finalFormData.paymentReceipt)
 
         // Show processing screen for BaridiMob
         if (formData.paymentMethod === 'baridimob') {

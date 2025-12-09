@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,6 +17,7 @@ import {
     Mail
 } from "lucide-react"
 import { toast } from "sonner"
+import { logout } from "@/lib/actions/auth.actions"
 import Link from "next/link"
 
 interface Stage {
@@ -45,19 +45,13 @@ interface ClientData {
 }
 
 export default function ClientDashboard() {
-    const { data: session, status } = useSession()
     const router = useRouter()
     const [client, setClient] = useState<ClientData | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
-        if (status === 'loading') return
-        if (!session || session.user.userType !== 'client') {
-            router.push('/login')
-            return
-        }
         fetchClientData()
-    }, [session, status, router])
+    }, [])
 
     const fetchClientData = async () => {
         try {
@@ -81,7 +75,7 @@ export default function ClientDashboard() {
     }
 
     const handleLogout = async () => {
-        await signOut({ callbackUrl: '/login' })
+        await logout()
     }
 
     const getStageStatus = (stage: Stage) => {
@@ -114,7 +108,7 @@ export default function ClientDashboard() {
         }
     }
 
-    if (status === 'loading' || isLoading) {
+    if (isLoading) {
         return (
             <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center">
                 <div className="text-center">
@@ -125,7 +119,7 @@ export default function ClientDashboard() {
         )
     }
 
-    if (!session || !client) {
+    if (!client) {
         return (
             <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center">
                 <div className="text-center">

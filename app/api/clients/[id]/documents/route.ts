@@ -13,10 +13,10 @@ const ALLOWED_TYPES = [
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    await requireAdmin(request)
+    await requireAdmin()
     
     // ✅ Attendre les params (Next.js 15)
     const { id } = await params
@@ -144,7 +144,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAdmin(request)
+    await requireAdmin()
     
     // ✅ Attendre les params (Next.js 15)
     const { id } = await params

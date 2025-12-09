@@ -96,11 +96,14 @@ const nextConfig = {
     ]
   },
 
-  serverExternalPackages: ['googleapis', 'google-auth-library'],
+  serverExternalPackages: ['googleapis', 'google-auth-library', '@prisma/client', 'prisma'],
 
   experimental: {
     workerThreads: false,
     cpus: 1,
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
   },
 
   webpack: (config, { isServer }) => {

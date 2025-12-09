@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { RefreshCw, Loader2, LogOut, User, Users, CreditCard, Clock, CheckCircle, Search, Eye, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { useClients } from "@/hooks/useClients"
+import { logout } from "@/lib/actions/auth.actions"
 import type { Client } from "@/lib/types"
 
 export default function AdminPage() {
@@ -27,17 +28,6 @@ export default function AdminPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [deletingId, setDeletingId] = useState("")
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/admin/login")
-    } else if (status === "authenticated") {
-      const role = session?.user?.role
-      if (role !== "ADMIN" && role !== "SUPER_ADMIN") {
-        router.replace("/admin/login")
-      }
-    }
-  }, [status, session, router])
 
   const loadClients = useCallback(async () => {
     setIsRefreshing(true)
@@ -55,12 +45,39 @@ export default function AdminPage() {
   }, [currentPage, searchTerm, statusFilter, paymentFilter, fetchClients])
 
   useEffect(() => {
-    if (session?.user) loadClients()
-  }, [session, loadClients])
+    if (status === "authenticated") {
+      loadClients()
+    }
+  }, [status, loadClients])
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/admin/login")
+    } else if (status === "authenticated" && session?.user) {
+      const userType = (session.user as any).userType
+      if (userType !== "admin") {
+        router.push("/admin/login")
+      }
+    }
+  }, [status, session, router])
+
+  // Show loading while checking auth
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  // Don't render if not authenticated or not admin
+  if (status === "unauthenticated" || (session?.user as any)?.userType !== "admin") {
+    return null
+  }
 
   async function handleLogout() {
     if (!confirm("Voulez-vous vous déconnecter ?")) return
-    await signOut({ callbackUrl: "/admin/login" })
+    await logout()
   }
 
   async function handleDelete(id: string) {
@@ -285,13 +302,13 @@ export default function AdminPage() {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={statusLabels[client.status]?.color || "bg-gray-100"}>
-                              {statusLabels[client.status]?.label || client.status}
+                            <Badge className={statusLabels[client.status || 'pending']?.color || "bg-gray-100"}>
+                              {statusLabels[client.status || 'pending']?.label || client.status}
                             </Badge>
                           </TableCell>
                           <TableCell className="hidden sm:table-cell">
-                            <Badge className={paymentLabels[client.paymentStatus]?.color || "bg-gray-100"}>
-                              {paymentLabels[client.paymentStatus]?.label || client.paymentStatus}
+                            <Badge className={paymentLabels[client.paymentStatus || 'pending']?.color || "bg-gray-100"}>
+                              {paymentLabels[client.paymentStatus || 'pending']?.label || client.paymentStatus}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">

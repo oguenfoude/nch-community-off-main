@@ -1,15 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth/next"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { requireAdmin } from "@/lib/auth"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    await requireAdmin(request)
+    await requireAdmin()
 
     // ✅ Attendre les params (Next.js 15)
     const { id } = await params
@@ -66,10 +64,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    await requireAdmin(request)
+    await requireAdmin()
 
     // ✅ Attendre les params (Next.js 15)
     const { id } = await params
@@ -146,10 +144,10 @@ export async function PUT(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    await requireAdmin(request)
+    await requireAdmin()
 
     const { id } = await params
     const body = await request.json()
@@ -205,10 +203,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    await requireAdmin(request)
+    await requireAdmin()
 
     // ✅ Attendre les params (Next.js 15)
     const { id } = await params

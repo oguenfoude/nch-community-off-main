@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { signIn, useSession, getSession } from "next-auth/react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -9,22 +8,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, Loader2, Eye, EyeOff, Lock, Mail } from "lucide-react"
 import { toast } from "sonner"
+import { loginAdmin } from "@/lib/actions/auth.actions"
 
+/**
+ * Admin Login Page
+ * Clean, fast, no callback hell
+ */
 export default function AdminLoginPage() {
   const router = useRouter()
-  const { data: session, status } = useSession()
-  
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-
-  useEffect(() => {
-    if (status === "authenticated" && session?.user?.userType === "admin") {
-      router.replace("/admin")
-    }
-  }, [session, status, router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -38,38 +34,23 @@ export default function AdminLoginPage() {
     setError("")
 
     try {
-      const result = await signIn("admin", {
-        email: email.trim().toLowerCase(),
-        password,
-        redirect: false,
-      })
-
-      if (result?.error) {
-        setError("Email ou mot de passe incorrect")
-        return
-      }
-
-      const newSession = await getSession()
+      const result = await loginAdmin(email, password)
       
-      if (newSession?.user?.userType === "admin") {
+      if (result.success) {
         toast.success("Connexion réussie")
-        router.replace("/admin")
+        router.push("/admin")
+        router.refresh()
       } else {
-        setError("Accès administrateur requis")
+        setError(result.error || "Erreur de connexion")
+        toast.error(result.error || "Erreur de connexion")
       }
-    } catch {
+    } catch (error) {
+      console.error("Login error:", error)
       setError("Erreur de connexion")
+      toast.error("Erreur de connexion")
     } finally {
       setLoading(false)
     }
-  }
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#042d8e]" />
-      </div>
-    )
   }
 
   return (

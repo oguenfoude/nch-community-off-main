@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { signIn, getSession, useSession } from "next-auth/react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,74 +9,52 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AlertCircle, Loader2, Eye, EyeOff, Lock, Mail, User } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
+import { loginClient } from "@/lib/actions/auth.actions"
 
+/**
+ * Client Login Page
+ * Clean, fast, no callback hell
+ */
 export default function ClientLogin() {
+    const router = useRouter()
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState("")
-    const router = useRouter()
-    const { data: session, status } = useSession()
-
-    // Rediriger si déjà connecté
-    useEffect(() => {
-        if (status === "authenticated" && session?.user?.userType === "client") {
-            router.push("/me")
-        }
-    }, [session, status, router])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        setLoading(true)
-        setError("")
+        
+        const trimmedEmail = email.trim().toLowerCase()
+        const trimmedPassword = password.trim()
 
-        if (!email || !password) {
+        if (!trimmedEmail || !trimmedPassword) {
             setError("Veuillez remplir tous les champs")
-            setLoading(false)
             return
         }
 
-        try {
-            const result = await signIn("client", {
-                email: email.trim(),
-                password,
-                redirect: false,
-            })
+        setLoading(true)
+        setError("")
 
-            if (result?.error) {
-                setError("Email ou mot de passe incorrect")
-                toast.error("Échec de la connexion")
+        try {
+            const result = await loginClient(trimmedEmail, trimmedPassword)
+            
+            if (result.success) {
+                toast.success("Connexion réussie !")
+                router.push("/me")
+                router.refresh()
             } else {
-                // Vérifier la session et rediriger
-                const session = await getSession()
-                if (session?.user?.userType === "client") {
-                    toast.success("Connexion réussie !")
-                    router.push("/me")
-                } else {
-                    setError("Erreur de connexion")
-                    toast.error("Erreur inattendue")
-                }
+                setError(result.error || "Erreur de connexion")
+                toast.error(result.error || "Erreur de connexion")
             }
         } catch (error) {
-            console.error("Erreur de connexion:", error)
+            console.error("Login error:", error)
             setError("Erreur lors de la connexion")
             toast.error("Erreur technique")
         } finally {
             setLoading(false)
         }
-    }
-
-    // Afficher un loader si la session est en cours de vérification
-    if (status === "loading") {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-nch-primary" />
-                    <p className="text-gray-600">Vérification de la session...</p>
-                </div>
-            </div>
-        )
     }
 
     return (

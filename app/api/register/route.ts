@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // ============================================
     
     // CIB or Edahabia -> Card payment flow
-    if (data.paymentMethod === 'cib' || data.paymentMethod === 'edahabia') {
+    if (data.paymentMethod === 'cib' ){
       console.log('💳 Processing card payment...')
       
       const result = await registerWithCardPayment(data)
