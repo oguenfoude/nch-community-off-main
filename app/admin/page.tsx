@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { RefreshCw, Loader2, LogOut, User, Users, CreditCard, Clock, CheckCircle, Search, Eye, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { useClients } from "@/hooks/useClients"
-import { logout } from "@/lib/actions/auth.actions"
+import { logoutAdmin } from "@/lib/actions/auth.actions"
 import type { Client } from "@/lib/types"
 
 export default function AdminPage() {
@@ -77,7 +77,7 @@ export default function AdminPage() {
 
   async function handleLogout() {
     if (!confirm("Voulez-vous vous déconnecter ?")) return
-    await logout()
+    await logoutAdmin()
   }
 
   async function handleDelete(id: string) {

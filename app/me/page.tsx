@@ -17,7 +17,7 @@ import {
     Mail
 } from "lucide-react"
 import { toast } from "sonner"
-import { logout } from "@/lib/actions/auth.actions"
+import { logoutClient } from "@/lib/actions/auth.actions"
 import Link from "next/link"
 
 interface Stage {
@@ -75,7 +75,7 @@ export default function ClientDashboard() {
     }
 
     const handleLogout = async () => {
-        await logout()
+        await logoutClient()
     }
 
     const getStageStatus = (stage: Stage) => {

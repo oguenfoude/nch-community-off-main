@@ -59,3 +59,11 @@ export async function loginClient(email: string, password: string) {
 export async function logout() {
   await signOut({ redirectTo: "/" })
 }
+
+export async function logoutAdmin() {
+  await signOut({ redirectTo: "/admin/login" })
+}
+
+export async function logoutClient() {
+  await signOut({ redirectTo: "/login" })
+}
