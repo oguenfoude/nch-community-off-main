@@ -77,7 +77,10 @@ export default function AdminPage() {
 
   async function handleLogout() {
     if (!confirm("Voulez-vous vous déconnecter ?")) return
-    await logoutAdmin()
+    const result = await logoutAdmin()
+    if (result?.redirectTo) {
+      window.location.href = result.redirectTo
+    }
   }
 
   async function handleDelete(id: string) {

@@ -57,13 +57,16 @@ export async function loginClient(email: string, password: string) {
 }
 
 export async function logout() {
-  await signOut({ redirectTo: "/" })
+  await signOut({ redirect: false })
+  return { redirectTo: "/" }
 }
 
 export async function logoutAdmin() {
-  await signOut({ redirectTo: "/admin/login" })
+  await signOut({ redirect: false })
+  return { redirectTo: "/admin/login" }
 }
 
 export async function logoutClient() {
-  await signOut({ redirectTo: "/login" })
+  await signOut({ redirect: false })
+  return { redirectTo: "/login" }
 }

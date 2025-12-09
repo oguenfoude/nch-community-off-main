@@ -75,7 +75,10 @@ export default function ClientDashboard() {
     }
 
     const handleLogout = async () => {
-        await logoutClient()
+        const result = await logoutClient()
+        if (result?.redirectTo) {
+            window.location.href = result.redirectTo
+        }
     }
 
     const getStageStatus = (stage: Stage) => {
