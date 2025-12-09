@@ -6,7 +6,13 @@ import { auth } from "@/auth"
  */
 
 export async function getAuthenticatedUser() {
-  const session = await auth()
+  let session = await auth()
+  
+  // Retry once if session is null (timing issue with cookie)
+  if (!session || !session.user) {
+    await new Promise(resolve => setTimeout(resolve, 50))
+    session = await auth()
+  }
   
   if (!session || !session.user) {
     return null
@@ -30,16 +36,8 @@ export async function requireAdmin() {
   
   const userType = (user as any).userType
   
-  // Debug logging for production
-  console.log("🔍 requireAdmin check:", {
-    userId: user.id,
-    email: user.email,
-    userType,
-    role: (user as any).role,
-    fullUser: JSON.stringify(user)
-  })
-  
   if (userType !== "admin") {
+    console.error("❌ Access denied - not admin:", { email: user.email, userType })
     throw new Error("Accès administrateur requis")
   }
   

@@ -10,51 +10,48 @@ import { redirect } from "next/navigation"
 
 export async function loginAdmin(email: string, password: string) {
   try {
-    await signIn("admin", {
+    const result = await signIn("admin", {
       email: email.toLowerCase().trim(),
       password,
-      redirect: true,
-      redirectTo: "/admin"
+      redirect: false
     })
     
+    if (result?.error) {
+      return { 
+        success: false, 
+        error: result.error === 'CredentialsSignin' 
+          ? "Email ou mot de passe incorrect" 
+          : "Une erreur est survenue" 
+      }
+    }
+    
     return { success: true }
-  } catch (error: unknown) {
-    // Handle redirect errors
-    if (error && typeof error === 'object' && 'digest' in error) {
-      throw error
-    }
-    
-    const err = error as Error
-    if (err.message?.includes('CredentialsSignin')) {
-      return { success: false, error: "Email ou mot de passe incorrect" }
-    }
-    
+  } catch (error) {
+    console.error("❌ Admin login error:", error)
     return { success: false, error: "Une erreur est survenue" }
   }
 }
 
 export async function loginClient(email: string, password: string) {
   try {
-    await signIn("client", {
+    const result = await signIn("client", {
       email: email.toLowerCase().trim(),
       password,
-      redirect: true,
-      redirectTo: "/me"
+      redirect: false
     })
     
+    if (result?.error) {
+      return { 
+        success: false, 
+        error: result.error === 'CredentialsSignin' 
+          ? "Email ou mot de passe incorrect" 
+          : "Une erreur est survenue" 
+      }
+    }
+    
     return { success: true }
-  } catch (error: unknown) {
-    // Handle redirect errors
-    if (error && typeof error === 'object' && 'digest' in error) {
-      throw error
-    }
-    
-    const err = error as Error
-    
-    if (err.message?.includes('CredentialsSignin')) {
-      return { success: false, error: "Email ou mot de passe incorrect" }
-    }
-    
+  } catch (error) {
+    console.error("❌ Client login error:", error)
     return { success: false, error: "Une erreur est survenue" }
   }
 }

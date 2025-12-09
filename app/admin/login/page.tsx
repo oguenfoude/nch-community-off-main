@@ -38,17 +38,21 @@ export default function AdminLoginPage() {
       
       if (result.success) {
         toast.success("Connexion réussie")
-        router.push("/admin")
-        router.refresh()
+        
+        // Wait for session to be set
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Hard navigation to ensure fresh session
+        window.location.href = "/admin"
       } else {
         setError(result.error || "Erreur de connexion")
         toast.error(result.error || "Erreur de connexion")
+        setLoading(false)
       }
     } catch (error) {
       console.error("Login error:", error)
       setError("Erreur de connexion")
       toast.error("Erreur de connexion")
-    } finally {
       setLoading(false)
     }
   }

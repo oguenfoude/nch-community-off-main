@@ -42,17 +42,21 @@ export default function ClientLogin() {
             
             if (result.success) {
                 toast.success("Connexion réussie !")
-                router.push("/me")
-                router.refresh()
+                
+                // Wait for session to be set
+                await new Promise(resolve => setTimeout(resolve, 100))
+                
+                // Hard navigation to ensure fresh session
+                window.location.href = "/me"
             } else {
                 setError(result.error || "Erreur de connexion")
                 toast.error(result.error || "Erreur de connexion")
+                setLoading(false)
             }
         } catch (error) {
             console.error("Login error:", error)
             setError("Erreur lors de la connexion")
             toast.error("Erreur technique")
-        } finally {
             setLoading(false)
         }
     }
@@ -178,7 +182,7 @@ export default function ClientLogin() {
                                 </Link>
                                 <br />
                                 <Link
-                                    href="/admin/"
+                                    href="/admin/login"
                                     className="text-gray-400 hover:underline mt-2 inline-block text-xs"
                                 >
                                     Accès administrateur
