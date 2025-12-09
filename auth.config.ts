@@ -46,15 +46,18 @@ const config: NextAuthConfig = {
             data: { lastLogin: new Date() }
           })
 
-          return {
+          const userData = {
             id: admin.id,
             email: admin.email,
             name: admin.name,
             role: admin.role,
-            userType: "admin"
+            userType: "admin" as const
           }
+          
+          console.log("✅ Admin authorized:", userData)
+          return userData
         } catch (error) {
-          console.error("Admin auth error:", error)
+          console.error("❌ Admin auth error:", error)
           return null
         }
       }
@@ -89,15 +92,18 @@ const config: NextAuthConfig = {
             return null
           }
 
-          return {
+          const userData = {
             id: client.id,
             email: client.email,
             name: `${client.firstName} ${client.lastName}`,
             role: "CLIENT",
-            userType: "client"
+            userType: "client" as const
           }
+          
+          console.log("✅ Client authorized:", userData)
+          return userData
         } catch (error) {
-          console.error("Client auth error:", error)
+          console.error("❌ Client auth error:", error)
           return null
         }
       }
@@ -113,6 +119,13 @@ const config: NextAuthConfig = {
         token.id = user.id
         token.role = user.role
         token.userType = user.userType
+        
+        // Debug logging
+        console.log("🔑 JWT callback - storing:", {
+          userId: user.id,
+          role: user.role,
+          userType: user.userType
+        })
       }
       return token
     },
@@ -121,6 +134,13 @@ const config: NextAuthConfig = {
         session.user.id = token.id as string
         session.user.role = token.role as string
         session.user.userType = token.userType as string
+        
+        // Debug logging
+        console.log("👤 Session callback - returning:", {
+          userId: session.user.id,
+          role: session.user.role,
+          userType: session.user.userType
+        })
       }
       return session
     }

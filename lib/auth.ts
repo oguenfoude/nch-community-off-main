@@ -29,6 +29,16 @@ export async function requireAdmin() {
   const user = await requireAuth()
   
   const userType = (user as any).userType
+  
+  // Debug logging for production
+  console.log("🔍 requireAdmin check:", {
+    userId: user.id,
+    email: user.email,
+    userType,
+    role: (user as any).role,
+    fullUser: JSON.stringify(user)
+  })
+  
   if (userType !== "admin") {
     throw new Error("Accès administrateur requis")
   }
