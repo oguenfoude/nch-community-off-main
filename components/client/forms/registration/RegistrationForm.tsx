@@ -404,7 +404,7 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
 
     return (
         <div className="w-full max-w-4xl mx-auto">
-            <StepIndicator currentStep={currentStep} steps={stepTitles} />
+            <StepIndicator currentStep={currentStep + 1} steps={stepTitles} />
 
             {/* Error Summary Banner */}
             {hasErrors && (

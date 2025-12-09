@@ -29,10 +29,7 @@ export const StepIndicator = ({
 
       {/* Steps Timeline */}
       <div className="flex justify-center mb-8 sm:mb-12 overflow-x-auto">
-        <div className="flex items-center gap-2 sm:gap-4 min-w-max px-4 relative">
-          {/* Connector Line Behind */}
-          <div className="absolute top-5 left-0 right-0 h-0.5 bg-gray-300 -z-10" />
-
+        <div className="flex items-center gap-3 sm:gap-6 min-w-max px-4">
           {steps.map((step, index) => {
             const stepNumber = index + 1
             const isCompleted = stepNumber < currentStep
@@ -40,56 +37,74 @@ export const StepIndicator = ({
             const isPending = stepNumber > currentStep
 
             return (
-              <div key={index} className="flex flex-col items-center">
-                {/* Step Circle */}
-                <div
-                  className={`
-                    w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center 
-                    font-bold text-xs sm:text-sm
-                    transition-all duration-300 transform relative z-10
-                    ${
-                      isCompleted
-                        ? "bg-green-500 text-white shadow-md scale-100"
-                        : isCurrent
-                          ? "bg-nch-primary text-white scale-110 shadow-lg ring-4 ring-nch-primary ring-opacity-30"
-                          : "bg-gray-300 text-gray-600"
-                    }
-                  `}
-                >
-                  {isCompleted ? (
-                    <CheckCircle2 className="w-5 h-5" />
-                  ) : (
-                    stepNumber
-                  )}
+              <React.Fragment key={index}>
+                <div className="flex flex-col items-center">
+                  {/* Step Circle */}
+                  <div
+                    className={`
+                      w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center 
+                      font-bold text-base sm:text-lg
+                      transition-all duration-300 transform
+                      ${
+                        isCompleted
+                          ? "bg-green-500 text-white shadow-lg scale-105"
+                          : isCurrent
+                            ? "bg-nch-primary text-white scale-110 shadow-xl ring-4 ring-nch-primary ring-opacity-40 animate-pulse"
+                            : "bg-gray-300 text-gray-600"
+                      }
+                    `}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7" />
+                    ) : (
+                      stepNumber
+                    )}
+                  </div>
+
+                  {/* Step Label */}
+                  <div className="text-center mt-3 max-w-28">
+                    <p
+                      className={`text-xs sm:text-sm font-semibold transition-colors
+                      ${
+                        isCurrent
+                          ? "text-nch-primary font-bold"
+                          : isCompleted
+                            ? "text-green-600 font-medium"
+                            : "text-gray-500"
+                      }
+                    `}
+                    >
+                      {step}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Step Label */}
-                <div className="text-center mt-3 max-w-24">
-                  <p
-                    className={`text-xs font-medium transition-colors truncate
-                    ${
-                      isCurrent
-                        ? "text-nch-primary font-bold"
-                        : isCompleted
-                          ? "text-green-600"
-                          : "text-gray-500"
-                    }
-                  `}
-                  >
-                    {step}
-                  </p>
-                </div>
-              </div>
+                {/* Connector Line Between Steps */}
+                {index < steps.length - 1 && (
+                  <div className="flex items-center mb-12">
+                    <div
+                      className={`h-1 w-8 sm:w-12 transition-all duration-300
+                        ${stepNumber < currentStep ? "bg-green-500" : "bg-gray-300"}
+                      `}
+                    />
+                  </div>
+                )}
+              </React.Fragment>
             )
           })}
         </div>
       </div>
 
       {/* Step Description Box */}
-      <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
-        <p className="text-sm font-semibold text-blue-900">
-          {getStepDescription(currentStep, steps.length)}
-        </p>
+      <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-nch-primary rounded-r-lg shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex-shrink-0 w-10 h-10 bg-nch-primary text-white rounded-full flex items-center justify-center font-bold text-lg">
+            {currentStep}
+          </div>
+          <p className="text-sm sm:text-base font-semibold text-gray-800">
+            {getStepDescription(currentStep, steps.length)}
+          </p>
+        </div>
       </div>
     </div>
   )
