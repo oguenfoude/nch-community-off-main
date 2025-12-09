@@ -1,8 +1,4 @@
 // app/not-found.tsx
-// ============================================
-// NOT FOUND PAGE - 404 error handler
-// ============================================
-
 import React from "react"
 import Link from "next/link"
 import Image from "next/image"

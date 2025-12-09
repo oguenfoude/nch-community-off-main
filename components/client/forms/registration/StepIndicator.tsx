@@ -2,7 +2,7 @@
 "use client"
 
 import React from "react"
-import { CheckCircle2 } from "lucide-react"
+import { FileText, FolderOpen, Globe, CreditCard, CheckCircle } from "lucide-react"
 
 interface StepIndicatorProps {
   currentStep: number
@@ -15,116 +15,128 @@ export const StepIndicator = ({
   steps,
   className = "",
 }: StepIndicatorProps) => {
-  const progressPercentage = ((currentStep - 1) / (steps.length - 1)) * 100
+  const stepIcons = [
+    { icon: FileText, color: "text-blue-600" },
+    { icon: FolderOpen, color: "text-purple-600" },
+    { icon: Globe, color: "text-green-600" },
+    { icon: CreditCard, color: "text-orange-600" }
+  ]
 
   return (
     <div className={`w-full mb-6 sm:mb-8 ${className}`}>
-      {/* Progress Bar */}
-      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden mb-6">
-        <div
-          className="bg-gradient-to-r from-nch-primary to-orange-500 h-full transition-all duration-300"
-          style={{ width: `${progressPercentage}%` }}
-        />
-      </div>
+      {/* Steps */}
+      <div className="grid grid-cols-4 gap-2 sm:gap-4 mb-6">
+        {steps.map((step, index) => {
+          const stepNumber = index + 1
+          const isCompleted = stepNumber < currentStep
+          const isCurrent = stepNumber === currentStep
+          const IconComponent = stepIcons[index].icon
+          const iconColor = stepIcons[index].color
 
-      {/* Steps Timeline */}
-      <div className="flex justify-center mb-8 sm:mb-12 overflow-x-auto">
-        <div className="flex items-center gap-3 sm:gap-6 min-w-max px-4">
-          {steps.map((step, index) => {
-            const stepNumber = index + 1
-            const isCompleted = stepNumber < currentStep
-            const isCurrent = stepNumber === currentStep
-            const isPending = stepNumber > currentStep
-
-            return (
-              <React.Fragment key={index}>
-                <div className="flex flex-col items-center">
-                  {/* Step Circle */}
-                  <div
-                    className={`
-                      w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center 
-                      font-bold text-base sm:text-lg
-                      transition-all duration-300 transform
-                      ${
-                        isCompleted
-                          ? "bg-green-500 text-white shadow-lg scale-105"
-                          : isCurrent
-                            ? "bg-nch-primary text-white scale-110 shadow-xl ring-4 ring-nch-primary ring-opacity-40 animate-pulse"
-                            : "bg-gray-300 text-gray-600"
-                      }
-                    `}
-                  >
-                    {isCompleted ? (
-                      <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7" />
-                    ) : (
-                      stepNumber
-                    )}
-                  </div>
-
-                  {/* Step Label */}
-                  <div className="text-center mt-3 max-w-28">
-                    <p
-                      className={`text-xs sm:text-sm font-semibold transition-colors
-                      ${
-                        isCurrent
-                          ? "text-nch-primary font-bold"
-                          : isCompleted
-                            ? "text-green-600 font-medium"
-                            : "text-gray-500"
-                      }
-                    `}
-                    >
-                      {step}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Connector Line Between Steps */}
-                {index < steps.length - 1 && (
-                  <div className="flex items-center mb-12">
-                    <div
-                      className={`h-1 w-8 sm:w-12 transition-all duration-300
-                        ${stepNumber < currentStep ? "bg-green-500" : "bg-gray-300"}
-                      `}
-                    />
-                  </div>
+          return (
+            <div key={index} className="flex flex-col items-center">
+              {/* Step Circle with Icon */}
+              <div
+                className={`
+                  w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center 
+                  transition-all duration-300 mb-2 border-2
+                  ${
+                    isCompleted
+                      ? "bg-green-50 border-green-500"
+                      : isCurrent
+                        ? "bg-blue-50 border-blue-500 shadow-lg ring-4 ring-blue-100"
+                        : "bg-gray-50 border-gray-300"
+                  }
+                `}
+              >
+                {isCompleted ? (
+                  <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
+                ) : (
+                  <IconComponent 
+                    className={`w-5 h-5 sm:w-7 sm:h-7 ${isCurrent ? iconColor : "text-gray-400"}`}
+                  />
                 )}
-              </React.Fragment>
-            )
-          })}
-        </div>
+              </div>
+
+              {/* Step Label */}
+              <p
+                className={`text-xs sm:text-sm font-semibold text-center transition-colors px-1
+                  ${
+                    isCurrent
+                      ? "text-blue-600"
+                      : isCompleted
+                        ? "text-green-600"
+                        : "text-gray-500"
+                  }
+                `}
+              >
+                {step}
+              </p>
+
+              {/* Step Number Badge */}
+              <span
+                className={`text-xs font-bold mt-1
+                  ${
+                    isCurrent
+                      ? "text-blue-600"
+                      : isCompleted
+                        ? "text-green-600"
+                        : "text-gray-400"
+                  }
+                `}
+              >
+                {stepNumber}/4
+              </span>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Step Description Box */}
-      <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-nch-primary rounded-r-lg shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 w-10 h-10 bg-nch-primary text-white rounded-full flex items-center justify-center font-bold text-lg">
-            {currentStep}
-          </div>
-          <p className="text-sm sm:text-base font-semibold text-gray-800">
-            {getStepDescription(currentStep, steps.length)}
-          </p>
-        </div>
+      {/* Current Step Description */}
+      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-500">
+        <p className="text-sm sm:text-base font-medium text-gray-800 flex items-center gap-2">
+          {getStepIcon(currentStep)}
+          <span>{getStepDescription(currentStep)}</span>
+        </p>
       </div>
     </div>
   )
 }
 
 // ============================================
+// HELPER - Step Icons
+// ============================================
+
+function getStepIcon(currentStep: number): JSX.Element {
+  switch (currentStep) {
+    case 1:
+      return <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+    case 2:
+      return <FolderOpen className="w-5 h-5 text-purple-600 flex-shrink-0" />
+    case 3:
+      return <Globe className="w-5 h-5 text-green-600 flex-shrink-0" />
+    case 4:
+      return <CreditCard className="w-5 h-5 text-orange-600 flex-shrink-0" />
+    default:
+      return <FileText className="w-5 h-5 text-gray-600 flex-shrink-0" />
+  }
+}
+
+// ============================================
 // HELPER - Step Descriptions
 // ============================================
 
-function getStepDescription(currentStep: number, totalSteps: number): string {
+function getStepDescription(currentStep: number): string {
   switch (currentStep) {
     case 1:
-      return "📋 Commençons par vos informations personnelles de base"
+      return "Remplissez vos informations personnelles"
     case 2:
-      return "📄 Téléchargez vos documents requis (ID, diplôme, photo)"
+      return "Téléchargez vos documents requis"
     case 3:
-      return "🌍 Choisissez votre offre et vos pays d'intérêt"
+      return "Sélectionnez votre offre et pays"
     case 4:
-      return "💳 Complétez le paiement pour finaliser votre inscription"
+      return "Choisissez votre mode de paiement"
     default:
-      return `Étape ${currentStep} de ${totalSteps}`
+      return `Étape ${currentStep}`
   }
 }

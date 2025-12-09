@@ -1,6 +1,5 @@
-// components/forms/registration/RegistrationForm.tsx
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StepIndicator } from './StepIndicator'
 import { BasicInfoStep } from './steps/BasicInfoStep'
@@ -12,7 +11,7 @@ import { useFormValidation } from '@/hooks/useFormValidation'
 import { useTranslation } from '@/hooks/useTranslation'
 import { FormData, Language, PendingFiles, UploadedFile } from '@/lib/types/form'
 import { STEPS } from '@/lib/constants'
-import { Loader2, Mail, Upload } from 'lucide-react'
+import { Loader2, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { toast } from 'sonner'
 
@@ -343,52 +342,59 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
         t.steps.step4,
     ]
 
-    // ✅ Processing Screen for BaridiMob
+    // ✅ Processing Screen - Clean & Simple
     if (showProcessingScreen) {
         return (
-            <div className="w-full max-w-4xl mx-auto">
-                <Card className="border-2 border-orange-200">
-                    <CardContent className="p-8 sm:p-12">
-                        <div className="flex flex-col items-center justify-center space-y-6 text-center">
-                            <div className="relative">
-                                <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center">
-                                    <Loader2 className="h-10 w-10 text-orange-600 animate-spin" />
-                                </div>
+            <div className="w-full max-w-2xl mx-auto">
+                <Card>
+                    <CardContent className="p-6 sm:p-10">
+                        <div className="flex flex-col items-center text-center space-y-6">
+                            {/* Icon */}
+                            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+                                <CheckCircle className="h-12 w-12 text-green-600" />
                             </div>
                             
-                            <div className="space-y-3">
-                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                                    Traitement en cours
+                            {/* Title */}
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                                    Demande reçue !
                                 </h2>
-                                <p className="text-lg text-gray-600 max-w-md">
-                                    Votre demande d'inscription a été reçue avec succès
+                                <p className="text-gray-600">
+                                    Votre inscription a été enregistrée avec succès
                                 </p>
                             </div>
 
-                            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 max-w-lg">
+                            {/* Email Info */}
+                            <div className="w-full bg-blue-50 rounded-lg p-4 border-l-4 border-blue-500">
                                 <div className="flex items-start gap-3">
-                                    <Mail className="h-6 w-6 text-blue-600 flex-shrink-0 mt-1" />
-                                    <div className="text-left">
-                                        <h3 className="font-semibold text-blue-900 mb-2">
+                                    <Loader2 className="h-5 w-5 text-blue-600 animate-spin flex-shrink-0 mt-0.5" />
+                                    <div className="flex-1 text-left">
+                                        <p className="text-sm font-semibold text-blue-900 mb-1">
                                             Vérification en cours
-                                        </h3>
-                                        <p className="text-sm text-blue-800">
-                                            Les informations de connexion seront envoyées à l'e-mail enregistré 
-                                            <strong className="block mt-1">{formData.email}</strong>
-                                            après vérification du reçu de paiement
+                                        </p>
+                                        <p className="text-xs text-blue-700">
+                                            Vous recevrez vos identifiants à <strong>{formData.email}</strong> après validation du paiement
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="text-sm text-gray-500 space-y-1">
-                                <p>⏱️ Délai de vérification : 24-48 heures</p>
-                                <p>📧 Vérifiez votre boîte de réception et vos spams</p>
+                            {/* Timeline */}
+                            <div className="w-full bg-gray-50 rounded-lg p-4 space-y-2 text-sm text-gray-700">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-400"></div>
+                                    <span>Délai de traitement : 24-48 heures</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-400"></div>
+                                    <span>Vérifiez vos emails (spam inclus)</span>
+                                </div>
                             </div>
 
+                            {/* Button */}
                             <Button
                                 onClick={() => window.location.href = '/'}
-                                className="mt-6 bg-orange-600 hover:bg-orange-700"
+                                className="bg-nch-primary hover:bg-nch-primary-dark w-full sm:w-auto"
                             >
                                 Retour à l'accueil
                             </Button>
@@ -406,37 +412,23 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
         <div className="w-full max-w-4xl mx-auto">
             <StepIndicator currentStep={currentStep + 1} steps={stepTitles} />
 
-            {/* Error Summary Banner */}
+            {/* Error Banner - Clean & Simple */}
             {hasErrors && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                <div className="mb-4 p-3 sm:p-4 bg-red-50 border-l-4 border-red-500 rounded-lg flex items-center gap-2">
                     <div className="flex-shrink-0 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
                         <span className="text-white text-sm font-bold">!</span>
                     </div>
-                    <div>
-                        <p className="font-semibold text-red-800">
-                            {language === 'fr' 
-                                ? `${Object.keys(errors).length} champ(s) à corriger`
-                                : `${Object.keys(errors).length} حقول للتصحيح`
-                            }
-                        </p>
-                        <p className="text-sm text-red-600 mt-1">
-                            {language === 'fr'
-                                ? 'Veuillez remplir les champs marqués en rouge'
-                                : 'يرجى ملء الحقول المميزة باللون الأحمر'
-                            }
-                        </p>
-                    </div>
+                    <p className="text-sm sm:text-base font-semibold text-red-800">
+                        {language === 'fr' 
+                            ? `${Object.keys(errors).length} champ(s) requis`
+                            : `${Object.keys(errors).length} حقول مطلوبة`
+                        }
+                    </p>
                 </div>
             )}
 
-            <Card>
-                <CardHeader className="pb-4 sm:pb-6">
-                    <CardTitle className="text-xl sm:text-2xl font-bold text-nch-primary text-center sm:text-left">
-                        {stepTitles[currentStep]}
-                    </CardTitle>
-                </CardHeader>
-
-                <CardContent className="space-y-4 sm:space-y-6">
+            <Card className="shadow-lg">
+                <CardContent className="p-4 sm:p-6 space-y-6">
                     {currentStep === STEPS.BASIC_INFO && (
                         <BasicInfoStep
                             formData={formData}
@@ -476,27 +468,26 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
                         />
                     )}
 
-                    {/* Upload Progress */}
+                    {/* Upload Progress - Simple */}
                     {isUploadingFiles && (
-                        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <Loader2 className="h-6 w-6 text-blue-600 animate-spin" />
-                            <div>
-                                <p className="font-medium text-blue-900">
-                                    Téléchargement des fichiers...
-                                </p>
-                                <p className="text-sm text-blue-700">{uploadProgress}</p>
+                        <div className="flex items-center gap-3 p-3 sm:p-4 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                            <Loader2 className="h-5 w-5 text-blue-600 animate-spin flex-shrink-0" />
+                            <div className="flex-1">
+                                <p className="text-sm font-medium text-blue-900">Téléchargement en cours...</p>
+                                {uploadProgress && <p className="text-xs text-blue-700 mt-1">{uploadProgress}</p>}
                             </div>
                         </div>
                     )}
 
-                    {/* Navigation Buttons */}
-                    <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 pt-4 sm:pt-6">
+                    {/* Navigation Buttons - Clean & Simple */}
+                    <div className="flex justify-between gap-3 pt-4 border-t">
                         <Button
                             variant="outline"
                             onClick={handlePrevious}
                             disabled={isFirstStep || isSubmitting || isUploadingFiles}
-                            className="text-base sm:text-lg font-semibold bg-transparent w-full sm:w-auto order-2 sm:order-1"
+                            className="flex-1 sm:flex-none"
                         >
+                            <ChevronLeft className="w-4 h-4 mr-1" />
                             {t.previous}
                         </Button>
 
@@ -504,29 +495,33 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
                             <Button
                                 onClick={handleSubmit}
                                 disabled={isSubmitting || isUploadingFiles}
-                                className="bg-nch-primary hover:bg-nch-primary-dark text-base sm:text-lg font-semibold w-full sm:w-auto order-1 sm:order-2"
+                                className="flex-1 sm:flex-none bg-nch-primary hover:bg-nch-primary-dark"
                             >
                                 {isUploadingFiles ? (
                                     <>
-                                        <Upload className="w-5 h-5 mr-2 animate-bounce" />
-                                        Téléchargement...
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Envoi...
                                     </>
                                 ) : isSubmitting ? (
                                     <>
-                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                         {t.submitting}
                                     </>
                                 ) : (
-                                    t.submit
+                                    <>
+                                        <CheckCircle className="w-4 h-4 mr-2" />
+                                        {t.submit}
+                                    </>
                                 )}
                             </Button>
                         ) : (
                             <Button
                                 onClick={handleNext}
                                 disabled={isSubmitting}
-                                className="bg-nch-primary hover:bg-nch-primary-dark text-base sm:text-lg font-semibold w-full sm:w-auto order-1 sm:order-2"
+                                className="flex-1 sm:flex-none bg-nch-primary hover:bg-nch-primary-dark"
                             >
                                 {t.next}
+                                <ChevronRight className="w-4 h-4 ml-1" />
                             </Button>
                         )}
                     </div>

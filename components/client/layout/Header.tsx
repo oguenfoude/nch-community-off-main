@@ -4,6 +4,7 @@ import { Language } from '@/lib/types/form'
 import { Button } from '@/components/ui/button'
 import { LogIn, User } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface HeaderProps {
   title: string
@@ -17,10 +18,12 @@ export const Header = ({ title, language, onLanguageChange }: HeaderProps) => {
       <div className="container mx-auto px-4 py-3 sm:py-4 flex justify-between items-center">
         {/* Logo et titre */}
         <div className="flex items-center space-x-2 sm:space-x-3">
-          <img
+          <Image
             src="/images/nch-logo.jpg"
-            alt="NCH Community Logo"
-            className="w-8 h-8 sm:w-12 sm:h-12 object-contain"
+            alt="NCH Community"
+            width={48}
+            height={48}
+            className="w-10 h-10 sm:w-12 sm:h-12 object-contain rounded-lg"
           />
           <span className="text-lg sm:text-xl font-bold text-nch-primary truncate">
             {title}
