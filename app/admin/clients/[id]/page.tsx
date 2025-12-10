@@ -46,7 +46,9 @@ export default function ClientDetailPage({ params }: PageProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selectedStatus, setSelectedStatus] = useState("")
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("")
   const [hasChanges, setHasChanges] = useState(false)
+  const [hasPaymentChanges, setHasPaymentChanges] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null)
   const [pdfViewerType, setPdfViewerType] = useState<"google" | "direct">("google")
 
@@ -70,6 +72,7 @@ export default function ClientDetailPage({ params }: PageProps) {
       const client = await res.json()
       setClient(client)
       setSelectedStatus(client.status)
+      setSelectedPaymentStatus(client.paymentStatus || 'unpaid')
     } catch (err) {
       toast.error("Erreur lors du chargement")
       router.push("/admin")
@@ -83,22 +86,42 @@ export default function ClientDetailPage({ params }: PageProps) {
     setHasChanges(value !== client?.status)
   }
 
+  function handlePaymentStatusChange(value: string) {
+    setSelectedPaymentStatus(value)
+    setHasPaymentChanges(value !== client?.paymentStatus)
+  }
+
   async function handleSave() {
     if (!client) return
     setSaving(true)
     try {
-      const res = await fetch(`/api/clients/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: selectedStatus }),
-      })
-      if (!res.ok) throw new Error("Erreur de sauvegarde")
-      const updated = await res.json()
-      setClient(updated)
+      // Save status change
+      if (hasChanges) {
+        const res = await fetch(`/api/clients/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: selectedStatus }),
+        })
+        if (!res.ok) throw new Error("Erreur de sauvegarde du statut")
+      }
+
+      // Save payment status change
+      if (hasPaymentChanges) {
+        const res = await fetch(`/api/clients/${id}/payment-status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentStatus: selectedPaymentStatus }),
+        })
+        if (!res.ok) throw new Error("Erreur de sauvegarde du paiement")
+      }
+
+      // Refresh client data
+      await fetchClient()
       setHasChanges(false)
-      toast.success("Statut mis à jour")
-    } catch {
-      toast.error("Erreur de sauvegarde")
+      setHasPaymentChanges(false)
+      toast.success("Modifications sauvegardées")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur de sauvegarde")
     } finally {
       setSaving(false)
     }
@@ -107,7 +130,9 @@ export default function ClientDetailPage({ params }: PageProps) {
   function handleCancel() {
     if (client) {
       setSelectedStatus(client.status)
+      setSelectedPaymentStatus(client.paymentStatus || 'unpaid')
       setHasChanges(false)
+      setHasPaymentChanges(false)
     }
   }
 
@@ -226,7 +251,7 @@ export default function ClientDetailPage({ params }: PageProps) {
             <span className="font-semibold text-[#042d8e]">Détails Client</span>
           </div>
 
-          {hasChanges && (
+          {(hasChanges || hasPaymentChanges) && (
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
                 <X className="h-4 w-4 mr-1" />
@@ -262,11 +287,21 @@ export default function ClientDetailPage({ params }: PageProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {STATUS_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <span className={`px-2 py-0.5 rounded text-xs ${opt.color}`}>{opt.label}</span>
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="pending">
+                      <Badge className="bg-yellow-500 text-white hover:bg-yellow-600">En attente</Badge>
+                    </SelectItem>
+                    <SelectItem value="processing">
+                      <Badge className="bg-blue-500 text-white hover:bg-blue-600">En cours</Badge>
+                    </SelectItem>
+                    <SelectItem value="approved">
+                      <Badge className="bg-green-600 text-white hover:bg-green-700">Approuvé</Badge>
+                    </SelectItem>
+                    <SelectItem value="rejected">
+                      <Badge className="bg-red-600 text-white hover:bg-red-700">Rejeté</Badge>
+                    </SelectItem>
+                    <SelectItem value="completed">
+                      <Badge className="bg-[#042d8e] text-white hover:bg-[#031d5a]">Complété</Badge>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -419,17 +454,32 @@ export default function ClientDetailPage({ params }: PageProps) {
           <CardContent>
             <div className="grid sm:grid-cols-3 gap-6">
               <div>
-                <p className="text-xs text-gray-500">Statut</p>
-                <Badge className={
-                  client.paymentStatus === "paid" ? "bg-green-100 text-green-700" :
-                  client.paymentStatus === "pending" ? "bg-yellow-100 text-yellow-700" :
-                  "bg-gray-100 text-gray-700"
-                }>
-                  {client.paymentStatus === "paid" ? "Payé" :
-                   client.paymentStatus === "pending" ? "En attente" :
-                   client.paymentStatus === "partially_paid" ? "Partiel" :
-                   client.paymentStatus || "Non défini"}
-                </Badge>
+                <p className="text-xs text-gray-500 mb-2">Statut de paiement</p>
+                <Select value={selectedPaymentStatus} onValueChange={handlePaymentStatusChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unpaid">
+                      <Badge className="bg-gray-500 text-white hover:bg-gray-600">Non payé</Badge>
+                    </SelectItem>
+                    <SelectItem value="pending">
+                      <Badge className="bg-yellow-500 text-white hover:bg-yellow-600">En attente</Badge>
+                    </SelectItem>
+                    <SelectItem value="partially_paid">
+                      <Badge className="bg-orange-500 text-white hover:bg-orange-600">Partiel</Badge>
+                    </SelectItem>
+                    <SelectItem value="paid">
+                      <Badge className="bg-green-600 text-white hover:bg-green-700">Payé</Badge>
+                    </SelectItem>
+                    <SelectItem value="failed">
+                      <Badge className="bg-red-600 text-white hover:bg-red-700">Échoué</Badge>
+                    </SelectItem>
+                    <SelectItem value="refunded">
+                      <Badge className="bg-purple-600 text-white hover:bg-purple-700">Remboursé</Badge>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
