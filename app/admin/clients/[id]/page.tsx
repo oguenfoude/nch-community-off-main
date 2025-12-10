@@ -49,6 +49,7 @@ export default function ClientDetailPage({ params }: PageProps) {
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("")
   const [hasChanges, setHasChanges] = useState(false)
   const [hasPaymentChanges, setHasPaymentChanges] = useState(false)
+  const [verifyingPayment, setVerifyingPayment] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string } | null>(null)
   const [pdfViewerType, setPdfViewerType] = useState<"google" | "direct">("google")
 
@@ -133,6 +134,36 @@ export default function ClientDetailPage({ params }: PageProps) {
       setSelectedPaymentStatus(client.paymentStatus || 'unpaid')
       setHasChanges(false)
       setHasPaymentChanges(false)
+    }
+  }
+
+  async function handleVerifyPayment() {
+    if (!client || !confirm("Vérifier ce paiement BaridiMob ?")) return
+    setVerifyingPayment(true)
+    try {
+      // Find the paid payment that needs verification
+      const paidPayment = client.payments?.find(p => p.status === 'paid' && p.paymentMethod === 'baridimob')
+      
+      if (!paidPayment) {
+        toast.error("Aucun paiement à vérifier")
+        return
+      }
+
+      // Update payment to verified via the payment-status API
+      const res = await fetch(`/api/clients/${id}/payment/${paidPayment.id}/verify`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+      })
+      
+      if (!res.ok) throw new Error("Erreur de vérification")
+      
+      // Refresh client data
+      await fetchClient()
+      toast.success("🎉 Paiement vérifié !")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur")
+    } finally {
+      setVerifyingPayment(false)
     }
   }
 
@@ -284,7 +315,19 @@ export default function ClientDetailPage({ params }: PageProps) {
               <div className="flex items-center gap-3">
                 <Select value={selectedStatus} onValueChange={handleStatusChange}>
                   <SelectTrigger className="w-40">
-                    <SelectValue />
+                    <Badge className={
+                      selectedStatus === 'completed' ? 'bg-[#042d8e] text-white' :
+                      selectedStatus === 'approved' ? 'bg-green-600 text-white' :
+                      selectedStatus === 'processing' ? 'bg-blue-500 text-white' :
+                      selectedStatus === 'rejected' ? 'bg-red-600 text-white' :
+                      'bg-yellow-500 text-white'
+                    }>
+                      {selectedStatus === 'completed' ? 'Complété' :
+                       selectedStatus === 'approved' ? 'Approuvé' :
+                       selectedStatus === 'processing' ? 'En cours' :
+                       selectedStatus === 'rejected' ? 'Rejeté' :
+                       'En attente'}
+                    </Badge>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">
@@ -457,7 +500,21 @@ export default function ClientDetailPage({ params }: PageProps) {
                 <p className="text-xs text-gray-500 mb-2">Statut de paiement</p>
                 <Select value={selectedPaymentStatus} onValueChange={handlePaymentStatusChange}>
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <Badge className={
+                      selectedPaymentStatus === 'paid' ? 'bg-green-600 text-white' :
+                      selectedPaymentStatus === 'pending' ? 'bg-yellow-500 text-white' :
+                      selectedPaymentStatus === 'partially_paid' ? 'bg-orange-500 text-white' :
+                      selectedPaymentStatus === 'failed' ? 'bg-red-600 text-white' :
+                      selectedPaymentStatus === 'refunded' ? 'bg-purple-600 text-white' :
+                      'bg-gray-500 text-white'
+                    }>
+                      {selectedPaymentStatus === 'paid' ? 'Payé' :
+                       selectedPaymentStatus === 'pending' ? 'En attente' :
+                       selectedPaymentStatus === 'partially_paid' ? 'Partiel' :
+                       selectedPaymentStatus === 'failed' ? 'Échoué' :
+                       selectedPaymentStatus === 'refunded' ? 'Remboursé' :
+                       'Non payé'}
+                    </Badge>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unpaid">
@@ -497,20 +554,44 @@ export default function ClientDetailPage({ params }: PageProps) {
               <div className="mt-6 border-t pt-4">
                 <p className="text-sm font-medium mb-3">Historique des paiements</p>
                 <div className="space-y-2">
-                  {client.payments.map(payment => (
-                    <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium capitalize">{payment.paymentMethod}</p>
-                        <p className="text-xs text-gray-500">{formatDate(payment.createdAt)}</p>
+                  {client.payments.map(payment => {
+                    const needsVerification = payment.status === 'paid' && payment.paymentMethod === 'baridimob'
+                    
+                    return (
+                      <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium capitalize">{payment.paymentMethod}</p>
+                            {needsVerification && (
+                              <Badge className="bg-orange-500 text-white text-xs">En attente de vérification</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">{formatDate(payment.createdAt)}</p>
+                        </div>
+                        <div className="text-right flex items-center gap-3">
+                          <div>
+                            <p className="font-medium">{formatAmount(payment.amount)}</p>
+                            <Badge variant="outline" className="text-xs">
+                              {payment.status === "completed" || payment.status === "verified" ? "Vérifié" : 
+                               payment.status === "paid" ? "Payé" :
+                               payment.status === "pending" ? "En attente" : payment.status}
+                            </Badge>
+                          </div>
+                          {needsVerification && (
+                            <Button
+                              size="sm"
+                              onClick={handleVerifyPayment}
+                              disabled={verifyingPayment}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              {verifyingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                              Vérifier
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium">{formatAmount(payment.amount)}</p>
-                        <Badge variant="outline" className="text-xs">
-                          {payment.status === "completed" ? "Complété" : payment.status === "pending" ? "En attente" : payment.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}

@@ -97,23 +97,6 @@ export default function AdminPage() {
     }
   }
 
-  async function handlePaymentStatusChange(clientId: string, newStatus: string) {
-    try {
-      const res = await fetch(`/api/clients/${clientId}/payment-status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentStatus: newStatus }),
-      })
-      
-      if (!res.ok) throw new Error("Erreur de mise à jour")
-      
-      toast.success("Statut de paiement mis à jour")
-      loadClients()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur")
-    }
-  }
-
   function viewClient(id: string) {
     router.push(`/admin/clients/${id}`)
   }
@@ -327,34 +310,21 @@ export default function AdminPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="hidden sm:table-cell">
-                            <Select 
-                              value={client.paymentStatus || 'unpaid'} 
-                              onValueChange={(value) => handlePaymentStatusChange(client.id, value)}
-                            >
-                              <SelectTrigger className="w-32 h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="unpaid">
-                                  <Badge className="bg-gray-500 text-white hover:bg-gray-600 text-xs">Non payé</Badge>
-                                </SelectItem>
-                                <SelectItem value="pending">
-                                  <Badge className="bg-yellow-500 text-white hover:bg-yellow-600 text-xs">En attente</Badge>
-                                </SelectItem>
-                                <SelectItem value="partially_paid">
-                                  <Badge className="bg-orange-500 text-white hover:bg-orange-600 text-xs">Partiel</Badge>
-                                </SelectItem>
-                                <SelectItem value="paid">
-                                  <Badge className="bg-green-600 text-white hover:bg-green-700 text-xs">Payé</Badge>
-                                </SelectItem>
-                                <SelectItem value="failed">
-                                  <Badge className="bg-red-600 text-white hover:bg-red-700 text-xs">Échoué</Badge>
-                                </SelectItem>
-                                <SelectItem value="refunded">
-                                  <Badge className="bg-purple-600 text-white hover:bg-purple-700 text-xs">Remboursé</Badge>
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Badge className={
+                              client.paymentStatus === 'paid' ? 'bg-green-600 text-white' :
+                              client.paymentStatus === 'pending' ? 'bg-yellow-500 text-white' :
+                              client.paymentStatus === 'partially_paid' ? 'bg-orange-500 text-white' :
+                              client.paymentStatus === 'failed' ? 'bg-red-600 text-white' :
+                              client.paymentStatus === 'refunded' ? 'bg-purple-600 text-white' :
+                              'bg-gray-500 text-white'
+                            }>
+                              {client.paymentStatus === 'paid' ? 'Payé' :
+                               client.paymentStatus === 'pending' ? 'En attente' :
+                               client.paymentStatus === 'partially_paid' ? 'Partiel' :
+                               client.paymentStatus === 'failed' ? 'Échoué' :
+                               client.paymentStatus === 'refunded' ? 'Remboursé' :
+                               'Non payé'}
+                            </Badge>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">

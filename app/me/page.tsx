@@ -41,7 +41,15 @@ interface ClientData {
     totalAmount?: number
     paidAmount?: number
     remainingAmount?: number
+    hasPendingVerification?: boolean
     stages?: Stage[]
+    payments?: Array<{
+        id: string
+        amount: number
+        status: string
+        paymentMethod: string
+        createdAt: string
+    }>
 }
 
 export default function ClientDashboard() {
@@ -264,6 +272,30 @@ export default function ClientDashboard() {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* Payment Verification Warning - BaridiMob */}
+                {client.hasPendingVerification && (
+                    <Card className="border-2 border-yellow-300 bg-yellow-50">
+                        <CardContent className="p-6">
+                            <div className="flex items-start gap-4">
+                                <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <AlertCircle className="h-6 w-6 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-semibold text-yellow-900 mb-2">⏳ Paiement en cours de vérification</h3>
+                                    <p className="text-sm text-yellow-800 mb-3">
+                                        Votre paiement BaridiMob a bien été reçu et est actuellement en cours de vérification par notre équipe. 
+                                        Vous serez notifié dès que votre paiement sera validé.
+                                    </p>
+                                    <div className="flex items-center gap-2 text-sm text-yellow-700">
+                                        <Clock className="h-4 w-4" />
+                                        <span>Délai de vérification : 24-48 heures</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Payment Reminder */}
                 {client.paymentStatus === 'partially_paid' && client.remainingAmount && client.remainingAmount > 0 && (

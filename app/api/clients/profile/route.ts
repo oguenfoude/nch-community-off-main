@@ -49,9 +49,33 @@ export async function GET(request: NextRequest) {
             )
         }
 
+        // Calculate payment status
+        const payments = client.payments || []
+        const totalPaid = payments.filter(p => p.status === 'verified' || p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
+        const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0)
+        const hasPendingVerification = payments.some(p => p.status === 'paid' && p.paymentMethod === 'baridimob')
+        
+        let paymentStatus = 'unpaid'
+        if (totalPaid > 0 && totalPending === 0) {
+            paymentStatus = 'paid'
+        } else if (totalPaid > 0 && totalPending > 0) {
+            paymentStatus = 'partially_paid'
+        } else if (totalPending > 0) {
+            paymentStatus = 'pending'
+        }
+
+        const enrichedClient = {
+            ...client,
+            paymentStatus,
+            totalAmount: totalPaid + totalPending,
+            paidAmount: totalPaid,
+            remainingAmount: totalPending,
+            hasPendingVerification
+        }
+
         return NextResponse.json({
             success: true,
-            client
+            client: enrichedClient
         })
 
     } catch (error) {
