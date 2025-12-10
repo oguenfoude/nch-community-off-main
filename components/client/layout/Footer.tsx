@@ -30,11 +30,7 @@ export const Footer = () => {
             <ul className="space-y-3 text-sm text-gray-400">
               <li className="flex items-center gap-2">
                 <Mail className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                <span>contact@nch-community.com</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                <span>+213 XXX XXX XXX</span>
+                <span>contact@nch-community.online</span>
               </li>
               <li className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-blue-400 flex-shrink-0" />

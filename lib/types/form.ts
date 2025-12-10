@@ -9,8 +9,7 @@ export interface UploadedFile {
 }
 
 export interface BaridiMobInfo {
-  fullName: string
-  wilaya: string
+  email: string
   rip: string
   ccp: string
   key: string

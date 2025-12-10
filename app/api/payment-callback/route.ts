@@ -83,7 +83,6 @@ export async function GET(request: NextRequest) {
       }
 
       const regData = pending.registrationData as any
-      const paymentDetails = pending.paymentDetails as any
 
       const sofizpayResponse = {
         status,

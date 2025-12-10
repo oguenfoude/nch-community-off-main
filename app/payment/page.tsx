@@ -4,9 +4,37 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CreditCard, Wallet, Clock, ArrowLeft, CheckCircle2 } from "lucide-react"
+import { CreditCard, Wallet, Clock, ArrowLeft, CheckCircle2, Building2, Upload, Copy, Check } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
+import { ADMIN_PAYMENT_INFO } from '@/lib/constants/adminPayment'
+
+// Copy row component
+const InfoRow = ({ label, value, onCopy, copied }: {
+    label: string
+    value: string
+    onCopy: () => void
+    copied: boolean
+}) => (
+    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+        <div>
+            <span className="text-sm text-gray-500">{label}</span>
+            <p className="font-mono text-gray-900">{value}</p>
+        </div>
+        <button
+            onClick={onCopy}
+            type="button"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Copier"
+        >
+            {copied ? (
+                <Check className="w-4 h-4 text-green-600" />
+            ) : (
+                <Copy className="w-4 h-4 text-gray-400" />
+            )}
+        </button>
+    </div>
+)
 
 function PaymentContent() {
     const searchParams = useSearchParams()
@@ -15,6 +43,8 @@ function PaymentContent() {
     const [isLoading, setIsLoading] = useState(true)
     const [selectedMethod, setSelectedMethod] = useState<string>('')
     const [isProcessing, setIsProcessing] = useState(false)
+    const [receiptFile, setReceiptFile] = useState<File | null>(null)
+    const [copied, setCopied] = useState<string | null>(null)
 
     useEffect(() => {
         if (clientId) {
@@ -24,16 +54,57 @@ function PaymentContent() {
 
     const fetchClientData = async () => {
         try {
-            const response = await fetch(`/api/clients/${clientId}`)
+            // Use profile endpoint instead of admin endpoint
+            const response = await fetch('/api/clients/profile')
             const data = await response.json()
-            if (data.success) {
+            
+            if (data.success && data.client) {
                 setClient(data.client)
+                
+                // Verify this client matches the URL clientId
+                if (clientId && data.client.id !== clientId) {
+                    toast.error('Client ID mismatch')
+                    return
+                }
+            } else {
+                toast.error('Impossible de charger les données')
             }
         } catch (error) {
+            console.error('Error loading client:', error)
             toast.error('Erreur de chargement')
         } finally {
             setIsLoading(false)
         }
+    }
+
+    const copyToClipboard = async (text: string, field: string) => {
+        try {
+            await navigator.clipboard.writeText(text)
+            setCopied(field)
+            setTimeout(() => setCopied(null), 2000)
+            toast.success('Copié!')
+        } catch (err) {
+            console.error('Failed to copy:', err)
+        }
+    }
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+        if (!allowedTypes.includes(file.type)) {
+            toast.error('Format non supporté. Utilisez PDF, JPG ou PNG.')
+            return
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Fichier trop volumineux. Max 5MB.')
+            return
+        }
+
+        setReceiptFile(file)
+        toast.success('Reçu sélectionné')
     }
 
     const handlePayment = async () => {
@@ -42,28 +113,75 @@ function PaymentContent() {
             return
         }
 
+        if (selectedMethod === 'baridimob' && !receiptFile) {
+            toast.error('Veuillez téléverser votre reçu de paiement')
+            return
+        }
+
         setIsProcessing(true)
         try {
-            const response = await fetch('/api/process-payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    clientId: client.id,
-                    amount: client.remainingAmount,
-                    paymentMethod: selectedMethod,
-                    isSecondPayment: true
-                })
-            })
+            if (selectedMethod === 'baridimob') {
+                // Upload receipt first
+                const formData = new FormData()
+                formData.append('file', receiptFile!)
+                formData.append('folder', 'second-payments')
 
-            const data = await response.json()
-            
-            if (data.success && data.paymentUrl) {
-                window.location.href = data.paymentUrl
+                const uploadResponse = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+
+                const uploadData = await uploadResponse.json()
+
+                if (!uploadData.success) {
+                    throw new Error(uploadData.error || 'Échec du téléversement du reçu')
+                }
+
+                // Create payment record directly
+                const paymentResponse = await fetch('/api/clients/second-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clientId: client.id,
+                        amount: client.remainingAmount,
+                        paymentMethod: 'baridimob',
+                        receiptUrl: uploadData.url
+                    })
+                })
+
+                const paymentData = await paymentResponse.json()
+
+                if (paymentData.success) {
+                    toast.success('Paiement enregistré avec succès!')
+                    setTimeout(() => {
+                        window.location.href = '/me'
+                    }, 2000)
+                } else {
+                    throw new Error(paymentData.error || 'Erreur lors du traitement')
+                }
             } else {
-                toast.error('Erreur lors du paiement')
+                // CIB payment
+                const response = await fetch('/api/process-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clientId: client.id,
+                        amount: client.remainingAmount,
+                        paymentMethod: selectedMethod,
+                        isSecondPayment: true
+                    })
+                })
+
+                const data = await response.json()
+                
+                if (data.success && data.paymentUrl) {
+                    window.location.href = data.paymentUrl
+                } else {
+                    toast.error(data.error || 'Erreur lors du paiement')
+                }
             }
-        } catch (error) {
-            toast.error('Erreur de connexion')
+        } catch (error: any) {
+            toast.error(error.message || 'Erreur de connexion')
         } finally {
             setIsProcessing(false)
         }
@@ -136,6 +254,77 @@ function PaymentContent() {
                                 </button>
                             </div>
                         </div>
+
+                        {/* BaridiMob Details - Show when BaridiMob selected */}
+                        {selectedMethod === 'baridimob' && (
+                            <div className="space-y-4">
+                                {/* Account Info */}
+                                <div className="bg-orange-50 border border-orange-200 rounded-xl p-5">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Building2 className="h-5 w-5 text-orange-600" />
+                                        <h4 className="font-semibold text-gray-900">Informations du compte NCH Community</h4>
+                                    </div>
+
+                                    <div className="bg-white rounded-lg p-4 space-y-1">
+                                        <InfoRow 
+                                            label="Email"
+                                            value={ADMIN_PAYMENT_INFO.email}
+                                            onCopy={() => copyToClipboard(ADMIN_PAYMENT_INFO.email, 'email')}
+                                            copied={copied === 'email'}
+                                        />
+                                        <InfoRow 
+                                            label="RIP"
+                                            value={ADMIN_PAYMENT_INFO.rip}
+                                            onCopy={() => copyToClipboard(ADMIN_PAYMENT_INFO.rip, 'rip')}
+                                            copied={copied === 'rip'}
+                                        />
+                                        <InfoRow 
+                                            label="CCP (Clé)"
+                                            value={`${ADMIN_PAYMENT_INFO.ccp} — ${ADMIN_PAYMENT_INFO.key}`}
+                                            onCopy={() => copyToClipboard(ADMIN_PAYMENT_INFO.ccp, 'ccp')}
+                                            copied={copied === 'ccp'}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Receipt Upload */}
+                                <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Upload className="h-5 w-5 text-gray-600" />
+                                        <h4 className="font-semibold text-gray-900">
+                                            Reçu de paiement <span className="text-red-500">*</span>
+                                        </h4>
+                                    </div>
+
+                                    <label className="block cursor-pointer">
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.jpg,.jpeg,.png"
+                                            onChange={handleFileSelect}
+                                            className="hidden"
+                                        />
+                                        <div className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                                            receiptFile 
+                                                ? 'border-green-400 bg-green-50' 
+                                                : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50'
+                                        }`}>
+                                            {receiptFile ? (
+                                                <div className="flex items-center justify-center gap-2 text-green-700">
+                                                    <CheckCircle2 className="h-5 w-5" />
+                                                    <span className="font-medium">{receiptFile.name}</span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                                    <p className="text-sm text-gray-600">Cliquez pour téléverser</p>
+                                                    <p className="text-xs text-gray-400 mt-1">PDF, JPG ou PNG (max 5MB)</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Important Notice */}
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">

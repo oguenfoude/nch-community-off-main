@@ -8,36 +8,30 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const file = formData.get("file") as File
-    const clientId = formData.get("clientId") as string
-    const documentType = formData.get("documentType") as string
+    const clientId = formData.get("clientId") as string | null
+    const documentType = formData.get("documentType") as string | null
+    const folder = formData.get("folder") as string | null
 
     console.log('📋 Données reçues:')
-    console.log('  - Client ID:', clientId)
-    console.log('  - Document Type:', documentType)
+    console.log('  - Client ID:', clientId || 'non fourni')
+    console.log('  - Document Type:', documentType || 'non fourni')
+    console.log('  - Folder:', folder || 'non fourni')
     console.log('  - Fichier:', file?.name, '(', file?.size, 'bytes )')
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
-    }
-
-    if (!clientId) {
-      return NextResponse.json({ error: "Client ID required" }, { status: 400 })
-    }
-
-    if (!documentType) {
-      return NextResponse.json({ error: "Document type required" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 })
     }
 
     // Validation taille fichier
     const maxSize = 10 * 1024 * 1024 // 10MB
     if (file.size > maxSize) {
-      return NextResponse.json({ error: "File too large (max 10MB)" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "File too large (max 10MB)" }, { status: 400 })
     }
 
     // Validation types autorisés
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg']
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: "File type not allowed" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "File type not allowed" }, { status: 400 })
     }
 
     // Convertir le fichier en Buffer
@@ -46,27 +40,30 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes)
 
     if (buffer.length === 0) {
-      return NextResponse.json({ error: "Empty file" }, { status: 400 })
+      return NextResponse.json({ success: false, error: "Empty file" }, { status: 400 })
     }
 
-    // Créer le nom du fichier avec le type de document
+    // Créer le nom du fichier
     const fileExtension = file.type === 'application/pdf' ? 'pdf' :
       file.type === 'image/jpeg' || file.type === 'image/jpg' ? 'jpg' : 'png'
-    const fileName = `${documentType}_${Date.now()}.${fileExtension}`
+    const timestamp = Date.now()
+    const fileName = documentType 
+      ? `${documentType}_${timestamp}.${fileExtension}`
+      : `upload_${timestamp}.${fileExtension}`
 
     console.log('📝 Nom du fichier généré:', fileName)
     console.log('📁 Type MIME:', file.type)
 
-    // Déterminer le type de ressource pour Cloudinary
-    // PDFs go as 'raw', images as 'image'
+    // Déterminer le dossier et le type de ressource
     const resourceType = file.type === 'application/pdf' ? 'raw' : 'image'
+    const uploadFolder = folder || (clientId ? `nch-community/${clientId}` : 'nch-community/receipts')
 
     // Upload vers Cloudinary
     console.log('☁️ Upload vers Cloudinary...')
     const result = await uploadToCloudinary(buffer, fileName, {
-      folder: `nch-community/${clientId}`,
+      folder: uploadFolder,
       resourceType: resourceType as 'image' | 'raw',
-      publicId: `${documentType}_${Date.now()}`
+      publicId: documentType ? `${documentType}_${timestamp}` : `upload_${timestamp}`
     })
 
     console.log('✅ Upload terminé avec succès!')
@@ -83,11 +80,12 @@ export async function POST(request: NextRequest) {
     }
 
     const response = {
+      success: true,
       url: secureUrl,
       publicId: result.publicId,
       downloadUrl: secureUrl,
-      previewUrl: previewUrl, // ✅ Added preview URL
-      isPdf: file.type === 'application/pdf', // ✅ Flag to indicate PDF
+      previewUrl: previewUrl,
+      isPdf: file.type === 'application/pdf',
       fileInfo: {
         name: result.originalFilename,
         size: result.size,
@@ -107,7 +105,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("❌ Erreur upload:", error)
     return NextResponse.json(
-      { error: error.message || "Upload failed" },
+      { success: false, error: error.message || "Upload failed" },
       { status: 500 }
     )
   }

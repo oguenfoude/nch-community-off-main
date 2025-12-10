@@ -141,8 +141,8 @@ export default function ClientDetailPage({ params }: PageProps) {
     if (!client || !confirm("Vérifier ce paiement BaridiMob ?")) return
     setVerifyingPayment(true)
     try {
-      // Find the paid payment that needs verification
-      const paidPayment = client.payments?.find(p => p.status === 'paid' && p.paymentMethod === 'baridimob')
+      // Find the pending payment that needs verification
+      const paidPayment = client.payments?.find(p => p.status === 'pending' && p.paymentMethod === 'baridimob')
       
       if (!paidPayment) {
         toast.error("Aucun paiement à vérifier")
@@ -555,7 +555,7 @@ export default function ClientDetailPage({ params }: PageProps) {
                 <p className="text-sm font-medium mb-3">Historique des paiements</p>
                 <div className="space-y-2">
                   {client.payments.map(payment => {
-                    const needsVerification = payment.status === 'paid' && payment.paymentMethod === 'baridimob'
+                    const needsVerification = payment.status === 'pending' && payment.paymentMethod === 'baridimob'
                     
                     return (
                       <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -572,9 +572,9 @@ export default function ClientDetailPage({ params }: PageProps) {
                           <div>
                             <p className="font-medium">{formatAmount(payment.amount)}</p>
                             <Badge variant="outline" className="text-xs">
-                              {payment.status === "completed" || payment.status === "verified" ? "Vérifié" : 
-                               payment.status === "paid" ? "Payé" :
-                               payment.status === "pending" ? "En attente" : payment.status}
+                              {payment.status === "verified" ? "Vérifié" : 
+                               payment.status === "pending" ? "En attente" : 
+                               payment.status === "failed" ? "Échoué" : payment.status}
                             </Badge>
                           </div>
                           {needsVerification && (

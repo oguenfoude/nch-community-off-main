@@ -219,9 +219,11 @@ export default function ClientDetails({ selectedClient, isUploading, onStatusCha
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="unpaid">Non payé</SelectItem>
                         <SelectItem value="pending">En attente</SelectItem>
-                        <SelectItem value="partial">Partiel</SelectItem>
-                        <SelectItem value="paid">Payé</SelectItem>
+                        <SelectItem value="partially_paid">Payé 50%</SelectItem>
+                        <SelectItem value="paid">Payé complètement</SelectItem>
+                        <SelectItem value="failed">Échoué</SelectItem>
                         <SelectItem value="refunded">Remboursé</SelectItem>
                       </SelectContent>
                     </Select>
@@ -236,6 +238,88 @@ export default function ClientDetails({ selectedClient, isUploading, onStatusCha
                   Inscrit le {new Date(selectedClient.createdAt).toLocaleDateString("fr-FR")}
                 </div>
               </div>
+
+              {/* Payment History */}
+              {selectedClient.payments && selectedClient.payments.length > 0 && (
+                <div className="pt-3 border-t">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Historique des paiements
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedClient.payments.map((payment: any, index: number) => (
+                      <div key={payment.id} className="p-3 bg-gray-50 rounded-lg border">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="text-sm font-medium">
+                              {payment.paymentType === 'initial' ? 'Premier paiement (50%)' : 'Second paiement (50%)'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(payment.createdAt).toLocaleDateString('fr-FR')} à{' '}
+                              {new Date(payment.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                          <Badge className={
+                            payment.status === 'verified' || payment.status === 'completed' 
+                              ? 'bg-green-100 text-green-800'
+                              : payment.status === 'paid'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }>
+                            {payment.status === 'verified' ? 'Vérifié' : 
+                             payment.status === 'completed' ? 'Complété' :
+                             payment.status === 'paid' ? 'Payé' : 'En attente'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-600">
+                            {payment.paymentMethod === 'cib' ? 'Carte CIB' : 'BaridiMob/CCP'}
+                          </span>
+                          <span className="font-semibold">{payment.amount?.toLocaleString('fr-DZ')} DZD</span>
+                        </div>
+                        {payment.paymentMethod === 'baridimob' && payment.receiptUrl && (
+                          <div className="mt-2 pt-2 border-t">
+                            <a 
+                              href={payment.receiptUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                            >
+                              <Eye className="h-3 w-3" />
+                              Voir le reçu
+                            </a>
+                            {payment.status === 'paid' && (
+                              <Button
+                                size="sm"
+                                onClick={async () => {
+                                  if (!confirm('Vérifier ce paiement BaridiMob ?')) return
+                                  try {
+                                    const res = await fetch(`/api/clients/${selectedClient.id}/payment/${payment.id}/verify`, {
+                                      method: 'PATCH'
+                                    })
+                                    if (res.ok) {
+                                      toast.success('Paiement vérifié avec succès')
+                                      setTimeout(() => window.location.reload(), 500)
+                                    } else {
+                                      toast.error('Erreur lors de la vérification')
+                                    }
+                                  } catch (error) {
+                                    toast.error('Erreur de connexion')
+                                  }
+                                }}
+                                className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Vérifier le paiement
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </TabsContent>
 
             {/* DOCUMENTS TAB */}

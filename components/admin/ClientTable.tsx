@@ -111,7 +111,7 @@ export default function ClientTable({
         if (!onPaymentStatusChange) return
 
         // Cycle des statuts de paiement
-        const statusCycle: Client["paymentStatus"][] = ["unpaid", "pending", "paid", "failed", "refunded"]
+        const statusCycle: Client["paymentStatus"][] = ["unpaid", "pending", "partially_paid", "paid", "failed", "refunded"]
         const currentIndex = statusCycle.indexOf(currentStatus)
         const nextIndex = (currentIndex + 1) % statusCycle.length
         const nextStatus = statusCycle[nextIndex]
@@ -174,10 +174,10 @@ export default function ClientTable({
                                 <SelectItem value="all">Tous les paiements</SelectItem>
                                 <SelectItem value="unpaid">Non payé</SelectItem>
                                 <SelectItem value="pending">En attente</SelectItem>
-                                <SelectItem value="paid">Payé</SelectItem>
+                                <SelectItem value="paid">Payé complètement</SelectItem>
+                                <SelectItem value="partially_paid">Payé 50%</SelectItem>
                                 <SelectItem value="failed">Échoué</SelectItem>
                                 <SelectItem value="refunded">Remboursé</SelectItem>
-                                <SelectItem value="partial">Partiel</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

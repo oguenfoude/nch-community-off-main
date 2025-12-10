@@ -55,10 +55,22 @@ export interface Payment {
     paymentType: 'initial' | 'second'
     paymentMethod: string
     amount: number
-    status: 'pending' | 'completed' | 'failed'
+    status: 'pending' | 'verified' | 'completed' | 'failed'
     transactionId?: string | null
     orderId?: string | null
     gatewayResponse?: Record<string, unknown> | null
+    baridiMobInfo?: {
+        fullName?: string
+        phoneNumber?: string
+        wilaya?: string
+        rip?: string
+        ccp?: string
+        key?: string
+        receiptNumber?: string
+    } | null
+    receiptUrl?: string | null
+    verifiedBy?: string | null
+    verifiedAt?: string | null
     createdAt: string
     updatedAt: string
 }

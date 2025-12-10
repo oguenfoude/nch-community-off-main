@@ -9,11 +9,10 @@ export const statusConfig = {
 export const paymentStatusConfig = {
   unpaid: { label: "Non payé", color: "bg-red-100 text-red-800", icon: "❌" },
   pending: { label: "En attente", color: "bg-yellow-100 text-yellow-800", icon: "⏳" },
-  paid: { label: "Payé", color: "bg-green-100 text-green-800", icon: "✅" },
+  paid: { label: "Payé complètement", color: "bg-green-100 text-green-800", icon: "✅" },
+  partially_paid: { label: "Payé 50%", color: "bg-orange-100 text-orange-800", icon: "💳" },
   failed: { label: "Échoué", color: "bg-red-100 text-red-800", icon: "⚠️" },
   refunded: { label: "Remboursé", color: "bg-gray-100 text-gray-800", icon: "↩️" },
-  partial: { label: "Partiel", color: "bg-orange-100 text-orange-800", icon: "🔄" },
-  partially_paid: { label: "Partiellement payé (50%)", color: "bg-orange-100 text-orange-800", icon: "💳" }, // ADD THIS
 }
 
 export const offerLabels = {

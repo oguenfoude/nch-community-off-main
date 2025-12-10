@@ -120,24 +120,30 @@ export async function POST(request: NextRequest) {
                 }, { status: 404 })
             }
 
-            // Check if first payment is completed (client should have exactly 1 completed payment)
-            const completedPayments = client.payments?.filter(p => p.status === 'completed') || []
-            const hasFirstPaymentOnly = completedPayments.length === 1 && completedPayments[0].paymentType === 'initial'
+            // Check if first payment is completed (client should have at least 1 verified payment)
+            const verifiedPayments = client.payments?.filter(p => p.status === 'verified' || p.status === 'completed') || []
+            const hasFirstPayment = verifiedPayments.length >= 1 && verifiedPayments.some(p => p.paymentType === 'initial')
             
-            if (!hasFirstPaymentOnly) {
+            if (!hasFirstPayment) {
                 return NextResponse.json({ 
                     success: false, 
-                    error: 'Second payment not required or already completed.' 
+                    error: 'Le premier paiement doit être vérifié avant le deuxième paiement.' 
                 }, { status: 400 })
             }
 
-            // Check if stage 2 is completed
-            const stage2 = client.stages?.find(s => s.stageNumber === 2)
-            if (!stage2 || stage2.status !== 'completed') {
+            // Check if second payment already exists
+            const hasSecondPayment = client.payments?.some(p => p.paymentType === 'second')
+            if (hasSecondPayment) {
                 return NextResponse.json({ 
                     success: false, 
-                    error: 'Stage 2 must be completed before second payment' 
+                    error: 'Le deuxième paiement a déjà été effectué.' 
                 }, { status: 400 })
+            }
+
+            // Optional: Check if stage 2 is at least in progress (not required to be completed)
+            const stage2 = client.stages?.find(s => s.stageNumber === 2)
+            if (stage2 && stage2.status === 'not_started') {
+                console.warn('⚠️ Stage 2 not started yet, but allowing second payment')
             }
         }
 
@@ -151,10 +157,11 @@ export async function POST(request: NextRequest) {
                 registrationData: {
                     clientId: clientId || null,
                     isSecondPayment: isSecondPayment || false,
-                    amount,
-                    paymentMethod
                 },
-                paymentDetails: {},
+                paymentDetails: {
+                    amount: parseFloat(amount),
+                    paymentMethod: paymentMethod
+                },
                 status: 'pending'
             }
         })

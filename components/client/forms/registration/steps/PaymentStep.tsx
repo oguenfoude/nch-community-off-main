@@ -77,7 +77,6 @@ export const PaymentStep = ({
   }
 
   const selectPaymentMethod = (method: PaymentMethod) => {
-    // CIB and BaridiMob are supported
     if (method === 'cib') {
       onChange({ 
         paymentMethod: 'cib',
@@ -91,8 +90,7 @@ export const PaymentStep = ({
         paymentMethod: 'baridimob',
         paymentType: formData.paymentType || 'full',
         baridiMobInfo: {
-          fullName: ADMIN_PAYMENT_INFO.fullName,
-          wilaya: ADMIN_PAYMENT_INFO.wilaya,
+          email: ADMIN_PAYMENT_INFO.email,
           rip: ADMIN_PAYMENT_INFO.rip,
           ccp: ADMIN_PAYMENT_INFO.ccp,
           key: ADMIN_PAYMENT_INFO.key
@@ -248,58 +246,60 @@ export const PaymentStep = ({
         </button>
       </div>
 
+      {/* Payment Type Selection - Shows for BOTH methods */}
+      {(formData.paymentMethod === 'cib' || formData.paymentMethod === 'baridimob') && (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => onChange({ paymentType: 'full' })}
+            className={`p-4 rounded-xl border-2 text-left transition-all ${
+              formData.paymentType !== 'partial'
+                ? 'border-[#042d8e] bg-[#042d8e]/5'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                formData.paymentType !== 'partial' ? 'border-[#042d8e]' : 'border-gray-300'
+              }`}>
+                {formData.paymentType !== 'partial' && (
+                  <div className="w-2 h-2 rounded-full bg-[#042d8e]" />
+                )}
+              </div>
+              <span className="font-medium text-gray-900">Paiement complet</span>
+            </div>
+            <p className="text-lg font-semibold text-[#042d8e] ml-6">{getPrice('full')}</p>
+            <p className="text-xs text-green-600 ml-6">Réduction de 1,000 DZD incluse</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChange({ paymentType: 'partial' })}
+            className={`p-4 rounded-xl border-2 text-left transition-all ${
+              formData.paymentType === 'partial'
+                ? 'border-orange-500 bg-orange-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                formData.paymentType === 'partial' ? 'border-orange-500' : 'border-gray-300'
+              }`}>
+                {formData.paymentType === 'partial' && (
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                )}
+              </div>
+              <span className="font-medium text-gray-900">Paiement en 2 fois</span>
+            </div>
+            <p className="text-lg font-semibold text-orange-600 ml-6">{getPrice('partial')}</p>
+            <p className="text-xs text-gray-500 ml-6">50% maintenant, 50% plus tard</p>
+          </button>
+        </div>
+      )}
+
       {/* Payment Details (when BaridiMob selected) */}
       {formData.paymentMethod === 'baridimob' && (
         <div className="space-y-4">
-          {/* Payment Type Selection */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => onChange({ paymentType: 'full' })}
-              className={`p-4 rounded-xl border-2 text-left transition-all ${
-                formData.paymentType !== 'partial'
-                  ? 'border-[#042d8e] bg-[#042d8e]/5'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  formData.paymentType !== 'partial' ? 'border-[#042d8e]' : 'border-gray-300'
-                }`}>
-                  {formData.paymentType !== 'partial' && (
-                    <div className="w-2 h-2 rounded-full bg-[#042d8e]" />
-                  )}
-                </div>
-                <span className="font-medium text-gray-900">Paiement complet</span>
-              </div>
-              <p className="text-lg font-semibold text-[#042d8e] ml-6">{getPrice('full')}</p>
-              <p className="text-xs text-green-600 ml-6">Réduction de 1,000 DZD incluse</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onChange({ paymentType: 'partial' })}
-              className={`p-4 rounded-xl border-2 text-left transition-all ${
-                formData.paymentType === 'partial'
-                  ? 'border-orange-500 bg-orange-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  formData.paymentType === 'partial' ? 'border-orange-500' : 'border-gray-300'
-                }`}>
-                  {formData.paymentType === 'partial' && (
-                    <div className="w-2 h-2 rounded-full bg-orange-500" />
-                  )}
-                </div>
-                <span className="font-medium text-gray-900">Paiement partiel</span>
-              </div>
-              <p className="text-lg font-semibold text-orange-600 ml-6">{getPrice('partial')}</p>
-              <p className="text-xs text-gray-500 ml-6">50% maintenant, 50% plus tard</p>
-            </button>
-          </div>
-
           {/* Account Info */}
           <div className="bg-orange-50 border border-orange-200 rounded-xl p-5">
             <div className="flex items-center gap-2 mb-4">
@@ -309,16 +309,10 @@ export const PaymentStep = ({
 
             <div className="bg-white rounded-lg p-4 space-y-1">
               <InfoRow 
-                label="Nom complet"
-                value={ADMIN_PAYMENT_INFO.fullName}
-                onCopy={() => copyToClipboard(ADMIN_PAYMENT_INFO.fullName, 'name')}
-                copied={copied === 'name'}
-              />
-              <InfoRow 
-                label="Wilaya"
-                value={ADMIN_PAYMENT_INFO.wilaya}
-                onCopy={() => copyToClipboard(ADMIN_PAYMENT_INFO.wilaya, 'wilaya')}
-                copied={copied === 'wilaya'}
+                label="Email"
+                value={ADMIN_PAYMENT_INFO.email}
+                onCopy={() => copyToClipboard(ADMIN_PAYMENT_INFO.email, 'email')}
+                copied={copied === 'email'}
               />
               <InfoRow 
                 label="RIP"

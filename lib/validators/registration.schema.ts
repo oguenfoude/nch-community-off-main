@@ -19,8 +19,7 @@ export const emailSchema = z.string()
 // ============================================
 
 export const baridiMobInfoSchema = z.object({
-  fullName: z.string().min(2, 'Nom complet requis'),
-  wilaya: z.string().min(2, 'Wilaya requise'),
+  email: emailSchema,
   rip: z.string().regex(/^\d{20}$/, 'Le RIP doit contenir exactement 20 chiffres'),
   ccp: z.string().regex(/^\d+$/, 'Le CCP doit contenir uniquement des chiffres'),
   key: z.string().regex(/^\d{2}$/, 'La clé doit contenir exactement 2 chiffres'),

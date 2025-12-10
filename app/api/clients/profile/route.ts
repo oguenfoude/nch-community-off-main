@@ -34,6 +34,14 @@ export async function GET(request: NextRequest) {
                 createdAt: true,
                 updatedAt: true,
                 payments: {
+                    select: {
+                        id: true,
+                        amount: true,
+                        status: true,
+                        paymentMethod: true,
+                        paymentType: true,
+                        createdAt: true
+                    },
                     orderBy: { createdAt: 'desc' }
                 },
                 stages: {
@@ -51,25 +59,35 @@ export async function GET(request: NextRequest) {
 
         // Calculate payment status
         const payments = client.payments || []
-        const totalPaid = payments.filter(p => p.status === 'verified' || p.status === 'completed').reduce((sum, p) => sum + p.amount, 0)
-        const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0)
+        const completedPayments = payments.filter(p => p.status === 'verified' || p.status === 'completed')
+        const totalPaid = completedPayments.reduce((sum, p) => sum + p.amount, 0)
         const hasPendingVerification = payments.some(p => p.status === 'paid' && p.paymentMethod === 'baridimob')
         
+        // Get total price from offer
+        const offerPrices = {
+            'basic': 21000,
+            'premium': 28000,
+            'gold': 35000
+        }
+        const totalPrice = offerPrices[client.selectedOffer?.toLowerCase() as keyof typeof offerPrices] || 0
+        const remainingAmount = totalPrice - totalPaid
+        
+        // Determine payment status
         let paymentStatus = 'unpaid'
-        if (totalPaid > 0 && totalPending === 0) {
+        if (totalPaid >= totalPrice) {
             paymentStatus = 'paid'
-        } else if (totalPaid > 0 && totalPending > 0) {
+        } else if (totalPaid > 0 && totalPaid < totalPrice) {
             paymentStatus = 'partially_paid'
-        } else if (totalPending > 0) {
+        } else if (payments.some(p => p.status === 'pending')) {
             paymentStatus = 'pending'
         }
 
         const enrichedClient = {
             ...client,
             paymentStatus,
-            totalAmount: totalPaid + totalPending,
+            totalAmount: totalPrice,
             paidAmount: totalPaid,
-            remainingAmount: totalPending,
+            remainingAmount: remainingAmount > 0 ? remainingAmount : 0,
             hasPendingVerification
         }
 

@@ -105,6 +105,7 @@ export default function AdminPage() {
     total: pagination.total || 0,
     pending: clients.filter(c => c.status === "pending").length,
     paid: clients.filter(c => c.paymentStatus === "paid").length,
+    partiallyPaid: clients.filter(c => c.paymentStatus === "partially_paid").length,
     completed: clients.filter(c => c.status === "completed").length,
   }
 
@@ -123,16 +124,6 @@ export default function AdminPage() {
   }
 
   const offerLabels: Record<string, string> = { basic: "Basic", premium: "Premium", gold: "Gold" }
-
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#042d8e]" />
-      </div>
-    )
-  }
-
-  if (!session?.user) return null
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -153,13 +144,13 @@ export default function AdminPage() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <User className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">{session.user.name}</span>
+                  <span className="hidden sm:inline">{session?.user?.name}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <div className="px-3 py-2 text-sm">
-                  <p className="font-medium">{session.user.name}</p>
-                  <p className="text-xs text-gray-500">{session.user.email}</p>
+                  <p className="font-medium">{session?.user?.name}</p>
+                  <p className="text-xs text-gray-500">{session?.user?.email}</p>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600">
@@ -204,18 +195,18 @@ export default function AdminPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.paid}</p>
-                <p className="text-xs text-gray-500">Payés</p>
+                <p className="text-xs text-gray-500">Payés 100%</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-purple-600" />
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <CreditCard className="h-5 w-5 text-orange-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.completed}</p>
-                <p className="text-xs text-gray-500">Complétés</p>
+                <p className="text-2xl font-bold">{stats.partiallyPaid}</p>
+                <p className="text-xs text-gray-500">Payés 50%</p>
               </div>
             </CardContent>
           </Card>

@@ -1,6 +1,5 @@
 export const ADMIN_PAYMENT_INFO = {
-  fullName: "Mr. LEKBIR ANIS",
-  wilaya: "SETIF",
+  email: "contact@nch-community.online",
   rip: "00799999004145522768",
   ccp: "0041455227",
   key: "68"

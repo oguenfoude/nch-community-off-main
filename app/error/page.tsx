@@ -75,7 +75,7 @@ function ErrorContent() {
                         </Button>
                     </Link>
 
-                    <a href="mailto:contact@nch-community.com" className="block">
+                    <a href="mailto:contact@nch-community.online" className="block">
                         <Button variant="outline" className="w-full">
                             <Mail className="h-4 w-4 mr-2" />
                             Contacter le support
