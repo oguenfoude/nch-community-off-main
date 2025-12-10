@@ -6,9 +6,11 @@ import { requireAdmin } from "@/lib/auth"
  * API Route: PATCH /api/clients/[id]/payment/[paymentId]/verify
  * 
  * ADMIN ACTION: Accept or reject a BaridiMob payment
- * - Accept: Changes status from 'paid' to 'verified' 
- * - Reject: Changes status from 'paid' to 'rejected'
+ * - Accept: Changes status from 'pending' or 'paid' to 'verified' 
+ * - Reject: Changes status from 'pending' or 'paid' to 'rejected'
  * This is used when admin manually reviews the payment receipt
+ * 
+ * Note: Initial payments have status 'paid', second payments have status 'pending'
  */
 
 export async function PATCH(
@@ -43,8 +45,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Payment does not belong to this client" }, { status: 400 })
     }
     
-    if (payment.status !== 'paid') {
-      return NextResponse.json({ error: "Payment is not in 'paid' status" }, { status: 400 })
+    // Allow verification of both 'pending' and 'paid' payments (pending=second payment, paid=initial payment)
+    if (payment.status !== 'paid' && payment.status !== 'pending') {
+      return NextResponse.json({ 
+        error: `Payment cannot be verified. Current status: ${payment.status}. Only 'pending' or 'paid' payments can be verified.` 
+      }, { status: 400 })
     }
     
     // Update payment based on admin action

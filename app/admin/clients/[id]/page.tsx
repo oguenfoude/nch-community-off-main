@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, ArrowLeft, User, Mail, Phone, MapPin, GraduationCap, Globe, CreditCard, FileText, Download, Eye, Save, X, Check, AlertCircle } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Loader2, ArrowLeft, User, Mail, Phone, MapPin, GraduationCap, Globe, CreditCard, FileText, Download, Eye, Save, X, Check, AlertCircle, ListChecks } from "lucide-react"
 import { toast } from "sonner"
+import StageManagement from "@/components/admin/StageManagement"
 import type { Client, DocumentInfo } from "@/lib/types"
 
 interface Payment {
@@ -415,15 +417,33 @@ export default function ClientDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
-        {/* Documents Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <FileText className="h-5 w-5 text-[#042d8e]" />
-              Documents
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        {/* Main Content with Tabs */}
+        <Tabs defaultValue="documents" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto">
+            <TabsTrigger value="documents" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Documents</span>
+            </TabsTrigger>
+            <TabsTrigger value="payment" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              <span className="hidden sm:inline">Paiement</span>
+            </TabsTrigger>
+            <TabsTrigger value="stages" className="flex items-center gap-2">
+              <ListChecks className="h-4 w-4" />
+              <span className="hidden sm:inline">Étapes</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Documents Tab */}
+          <TabsContent value="documents">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="h-5 w-5 text-[#042d8e]" />
+                  Documents du client
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
             <div className="grid sm:grid-cols-2 gap-4">
               {DOCUMENT_TYPES.map(doc => {
                 const docInfo = getDocumentInfo(doc.key)
@@ -486,16 +506,18 @@ export default function ClientDetailPage({ params }: PageProps) {
             </div>
           </CardContent>
         </Card>
+          </TabsContent>
 
-        {/* Payment Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CreditCard className="h-5 w-5 text-[#042d8e]" />
-              Paiement
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+          {/* Payment Tab */}
+          <TabsContent value="payment">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <CreditCard className="h-5 w-5 text-[#042d8e]" />
+                  Informations de paiement
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
             <div className="grid sm:grid-cols-3 gap-6">
               <div>
                 <p className="text-xs text-gray-500 mb-2">Statut de paiement</p>
@@ -616,8 +638,15 @@ export default function ClientDetailPage({ params }: PageProps) {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
 
-        {/* Dates Card */}
+          {/* Stages Tab */}
+          <TabsContent value="stages">
+            <StageManagement clientId={id} />
+          </TabsContent>
+        </Tabs>
+
+        {/* Dates Card - Outside tabs, always visible */}
         <Card>
           <CardContent className="py-4">
             <div className="flex flex-wrap gap-6">
