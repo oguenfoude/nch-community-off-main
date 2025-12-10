@@ -1,22 +1,16 @@
-// app/api/upload/route.ts
+  // app/api/upload/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 import { uploadToCloudinary, deleteFromCloudinary, generateClientFolderName } from "@/lib/cloudinaryService"
+import { syncDocumentUpload } from "@/lib/services/googleSheets.sync"
+import { prisma } from "@/lib/prisma"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('📁 Début upload - Route API principale')
-
     const formData = await request.formData()
     const file = formData.get("file") as File
     const clientId = formData.get("clientId") as string | null
     const documentType = formData.get("documentType") as string | null
     const folder = formData.get("folder") as string | null
-
-    console.log('📋 Données reçues:')
-    console.log('  - Client ID:', clientId || 'non fourni')
-    console.log('  - Document Type:', documentType || 'non fourni')
-    console.log('  - Folder:', folder || 'non fourni')
-    console.log('  - Fichier:', file?.name, '(', file?.size, 'bytes )')
 
     if (!file) {
       return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 })
@@ -35,7 +29,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Convertir le fichier en Buffer
-    console.log('🔄 Conversion en Buffer...')
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
@@ -51,22 +44,16 @@ export async function POST(request: NextRequest) {
       ? `${documentType}_${timestamp}.${fileExtension}`
       : `upload_${timestamp}.${fileExtension}`
 
-    console.log('📝 Nom du fichier généré:', fileName)
-    console.log('📁 Type MIME:', file.type)
-
     // Déterminer le dossier et le type de ressource
     const resourceType = file.type === 'application/pdf' ? 'raw' : 'image'
     const uploadFolder = folder || (clientId ? `nch-community/${clientId}` : 'nch-community/receipts')
 
     // Upload vers Cloudinary
-    console.log('☁️ Upload vers Cloudinary...')
     const result = await uploadToCloudinary(buffer, fileName, {
       folder: uploadFolder,
       resourceType: resourceType as 'image' | 'raw',
       publicId: documentType ? `${documentType}_${timestamp}` : `upload_${timestamp}`
     })
-
-    console.log('✅ Upload terminé avec succès!')
 
     // Ensure we use secure URLs (HTTPS)
     const secureUrl = result.secureUrl || result.url.replace('http://', 'https://')
@@ -99,7 +86,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('📤 Réponse envoyée:', response)
+    // 🔄 Sync document upload to Google Sheets if clientId provided
+    if (clientId && documentType) {
+      try {
+        const client = await prisma.client.findUnique({ where: { id: clientId } })
+        if (client) {
+          await syncDocumentUpload(client.email, documentType, secureUrl)
+        }
+      } catch (error: any) {
+        console.error('⚠️ Google Sheets sync failed:', error.message)
+      }
+    }
+
     return NextResponse.json(response)
 
   } catch (error: any) {
@@ -114,20 +112,14 @@ export async function POST(request: NextRequest) {
 // Route pour supprimer un fichier
 export async function DELETE(request: NextRequest) {
   try {
-    console.log('🗑️ Début suppression fichier')
-
     const { searchParams } = new URL(request.url)
     const publicId = searchParams.get('publicId') || searchParams.get('fileId')
-
-    console.log('📋 Public ID à supprimer:', publicId)
 
     if (!publicId) {
       return NextResponse.json({ error: "Public ID required" }, { status: 400 })
     }
 
     await deleteFromCloudinary(publicId)
-
-    console.log('✅ Fichier supprimé avec succès')
 
     return NextResponse.json({ message: "File deleted successfully" })
 

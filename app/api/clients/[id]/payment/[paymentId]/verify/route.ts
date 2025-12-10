@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/auth"
+import { syncPaymentVerification } from "@/lib/services/googleSheets.sync"
 
 /**
  * API Route: PATCH /api/clients/[id]/payment/[paymentId]/verify
@@ -100,14 +101,22 @@ export async function PATCH(
       remainingAmount: totalPending
     }
     
-    console.log(`✅ Payment ${paymentId} ${action === 'accept' ? 'accepted' : 'rejected'} successfully`)
+    console.log(`✅ Payment ${action}ed successfully:`, paymentId)
+    console.log(`📊 Updated payment status: ${paymentStatus}`)
+    
+    // 🔄 Sync to Google Sheets with history
+    try {
+      await syncPaymentVerification(id, paymentId, action, admin.id, reason)
+      console.log('✅ Payment verification synced to Google Sheets')
+    } catch (error: any) {
+      console.error('⚠️ Google Sheets sync failed (non-blocking):', error.message)
+    }
     
     return NextResponse.json({
       success: true,
-      action: action,
-      message: action === 'accept' ? 'Paiement accepté avec succès' : 'Paiement rejeté',
       payment: updatedPayment,
-      client: enrichedClient
+      client: enrichedClient,
+      message: action === 'accept' ? 'Paiement accepté avec succès' : 'Paiement rejeté'
     })
     
   } catch (error: any) {

@@ -200,14 +200,10 @@ export async function registerWithBaridiMob(
     {
       paymentType: 'initial',
       amount,
-      remainingAmount,
       paymentMethod: 'baridimob',
       status: 'paid', // Mark as paid since BaridiMob receipt was uploaded
-      baridiMobInfo: data.baridiMobInfo ? {
-        phoneNumber: data.baridiMobInfo.phoneNumber || '',
-        receiptNumber: data.baridiMobInfo.receiptNumber || ''
-      } : null,
-      receiptUrl: receiptUrl || null,
+      baridiMobInfo: data.baridiMobInfo || null,
+      receiptUrl: receiptUrl || undefined,
     }
   )
 

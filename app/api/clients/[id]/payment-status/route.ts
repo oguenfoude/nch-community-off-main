@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/auth"
+import { syncStatusChange } from "@/lib/services/googleSheets.sync"
 
 /**
  * API Route: PATCH /api/clients/[id]/payment-status
@@ -219,6 +220,14 @@ export async function PATCH(
     }
     
     console.log(`✅ Payment status updated for client ${id}: ${calculatedPaymentStatus}`)
+    
+    // 🔄 Sync to Google Sheets with history
+    try {
+      await syncStatusChange(id, client.status, paymentStatus, admin.id)
+      console.log('✅ Payment status change synced to Google Sheets')
+    } catch (error: any) {
+      console.error('⚠️ Google Sheets sync failed (non-blocking):', error.message)
+    }
     
     return NextResponse.json(enrichedClient)
     

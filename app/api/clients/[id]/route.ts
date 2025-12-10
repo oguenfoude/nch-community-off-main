@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAdmin } from "@/lib/auth"
+import { syncClientUpdate } from "@/lib/services/googleSheets.sync"
 
 export async function GET(
   request: NextRequest,
@@ -67,7 +68,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    await requireAdmin()
+    const admin = await requireAdmin()
 
     // ✅ Attendre les params (Next.js 15)
     const { id } = await params
@@ -124,6 +125,16 @@ export async function PUT(
     }
 
     console.log('✅ Client mis à jour:', client.id)
+    
+    // 🔄 Sync to Google Sheets with history
+    try {
+      const updatedFields = Object.keys(body)
+      await syncClientUpdate(client.id, updatedFields, admin.id)
+      console.log('✅ Client update synced to Google Sheets')
+    } catch (error: any) {
+      console.error('⚠️ Google Sheets sync failed (non-blocking):', error.message)
+    }
+    
     return NextResponse.json(enrichedClient)
 
   } catch (error: any) {
@@ -147,7 +158,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    await requireAdmin()
+    const admin = await requireAdmin()
 
     const { id } = await params
     const body = await request.json()
@@ -187,7 +198,17 @@ export async function PATCH(
       remainingAmount: totalPending
     }
 
-    console.log('✅ Client mis à jour:', client.id)
+    console.log('✅ Client mis à jour (partial):', client.id)
+    
+    // 🔄 Sync to Google Sheets with history
+    try {
+      const updatedFields = Object.keys(body)
+      await syncClientUpdate(client.id, updatedFields, admin.id)
+      console.log('✅ Client update synced to Google Sheets')
+    } catch (error: any) {
+      console.error('⚠️ Google Sheets sync failed (non-blocking):', error.message)
+    }
+    
     return NextResponse.json(enrichedClient)
 
   } catch (error: any) {
