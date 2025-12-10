@@ -50,14 +50,14 @@ export async function POST(request: NextRequest) {
                 }, { status: 404 })
             }
 
-            // Create second payment record
+            // Create second payment record - AWAITING ADMIN VERIFICATION
             const payment = await prisma.payment.create({
                 data: {
                     clientId: client.id,
                     paymentType: 'second',
                     paymentMethod: 'baridimob',
                     amount: parseFloat(paymentDetails.amount),
-                    status: 'paid', // Pending admin verification
+                    status: 'paid', // Status: Payment submitted, awaiting admin verification
                     receiptUrl: receiptUrl,
                     baridiMobInfo: {
                         email: 'contact@nch-community.online',
@@ -100,8 +100,10 @@ export async function POST(request: NextRequest) {
 
             return NextResponse.json({
                 success: true,
-                message: 'Paiement enregistré avec succès. En attente de vérification.',
-                paymentId: payment.id
+                message: 'Paiement BaridiMob soumis avec succès. Un administrateur vérifiera votre reçu sous peu.',
+                paymentId: payment.id,
+                status: 'submitted', // Clear status for frontend
+                nextSteps: 'Votre paiement sera vérifié par un administrateur. Vous recevrez une confirmation par email.'
             })
 
         } else {

@@ -35,6 +35,7 @@ interface Payment {
     paymentType: string
     createdAt: string
     receiptUrl?: string
+    rejectionReason?: string
     baridiMobInfo?: {
         email?: string
         rip?: string
@@ -104,6 +105,36 @@ export default function ClientDashboard() {
         return 'pending'
     }
 
+    const getOfferName = (offer: string) => {
+        const names: Record<string, string> = {
+            'basic': 'Basique',
+            'premium': 'Premium',
+            'gold': 'Gold'
+        }
+        return names[offer?.toLowerCase()] || offer
+    }
+
+    const getPaymentTypeLabel = (payment: Payment, offer: string) => {
+        const offerKey = offer?.toLowerCase()
+        const pricing: Record<string, { full: number, partial: number }> = {
+            'basic': { full: 20000, partial: 10500 },   // 21000 - 1000 discount = 20000
+            'premium': { full: 27000, partial: 14000 }, // 28000 - 1000 discount = 27000
+            'gold': { full: 34000, partial: 17500 }     // 35000 - 1000 discount = 34000
+        }
+        
+        const prices = pricing[offerKey] || pricing.basic
+        
+        // Check if this is a full payment based on amount
+        if (payment.amount >= prices.full) {
+            return ' (Paiement intégral avec 10% de réduction)'
+        } else if (payment.paymentType === 'initial' || payment.amount === prices.partial) {
+            return ' (Premier paiement 50%)'
+        } else if (payment.paymentType === 'second') {
+            return ' (Deuxième paiement 50%)'
+        }
+        return ''
+    }
+
     const getPaymentBadge = (paymentStatus: string | undefined) => {
         const s = (paymentStatus || 'pending').toLowerCase()
         switch (s) {
@@ -113,6 +144,8 @@ export default function ClientDashboard() {
                 return { text: 'Payé complètement', color: 'bg-green-100 text-green-700 border-green-200' }
             case 'partially_paid':
                 return { text: 'Payé 50%', color: 'bg-orange-100 text-orange-700 border-orange-200' }
+            case 'pending':
+                return { text: 'En attente de vérification', color: 'bg-blue-100 text-blue-700 border-blue-200' }
             default:
                 return { text: 'Non payé', color: 'bg-red-100 text-red-700 border-red-200' }
         }
@@ -129,8 +162,10 @@ export default function ClientDashboard() {
     const getPaymentStatusLabel = (status: string) => {
         switch (status?.toLowerCase()) {
             case 'pending': return 'En attente de vérification'
-            case 'verified': return 'Vérifié'
+            case 'paid': return 'Soumis - En cours de vérification'
+            case 'verified': return 'Accepté par l\'administrateur'
             case 'completed': return 'Complété'
+            case 'rejected': return 'Rejeté par l\'administrateur'
             case 'failed': return 'Échoué'
             default: return status || '-'
         }
@@ -142,20 +177,13 @@ export default function ClientDashboard() {
             case 'completed':
                 return 'bg-green-100 text-green-700 border-green-200'
             case 'pending':
+            case 'paid':
                 return 'bg-blue-100 text-blue-700 border-blue-200'
+            case 'rejected':
             case 'failed':
                 return 'bg-red-100 text-red-700 border-red-200'
             default:
                 return 'bg-gray-100 text-gray-700 border-gray-200'
-        }
-    }
-
-    const getOfferName = (offer: string | undefined) => {
-        switch ((offer || '').toLowerCase()) {
-            case 'basic': return 'Basic'
-            case 'premium': return 'Premium'
-            case 'gold': return 'Gold'
-            default: return offer || '-'
         }
     }
 
@@ -336,8 +364,7 @@ export default function ClientDashboard() {
                                                 <div>
                                                     <p className="font-semibold text-slate-900">
                                                         Paiement #{index + 1}
-                                                        {payment.paymentType === 'initial' && ' (Premier paiement 50%)'}
-                                                        {payment.paymentType === 'second' && ' (Deuxième paiement 50%)'}
+                                                        {getPaymentTypeLabel(payment, client.selectedOffer)}
                                                     </p>
                                                     <p className="text-sm text-slate-500">
                                                         {getPaymentMethodLabel(payment.paymentMethod)} • {' '}
@@ -358,6 +385,22 @@ export default function ClientDashboard() {
                                                 </Badge>
                                             </div>
                                         </div>
+
+                                        {/* Rejection Reason - If payment was rejected */}
+                                        {payment.status === 'rejected' && payment.rejectionReason && (
+                                            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                                <div className="flex items-start gap-2">
+                                                    <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                        <span className="text-white text-xs font-bold">!</span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-red-800 mb-1">Raison du rejet :</p>
+                                                        <p className="text-sm text-red-700">{payment.rejectionReason}</p>
+                                                        <p className="text-xs text-red-600 mt-2">Vous pouvez soumettre un nouveau paiement avec les informations correctes.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Receipt & BaridiMob Info */}
                                         {payment.paymentMethod === 'baridimob' && (

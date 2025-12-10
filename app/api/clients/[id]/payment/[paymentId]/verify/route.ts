@@ -5,8 +5,10 @@ import { requireAdmin } from "@/lib/auth"
 /**
  * API Route: PATCH /api/clients/[id]/payment/[paymentId]/verify
  * 
- * Verifies a BaridiMob payment by changing status from 'paid' to 'verified'
- * This is used when admin manually verifies the payment receipt
+ * ADMIN ACTION: Accept or reject a BaridiMob payment
+ * - Accept: Changes status from 'paid' to 'verified' 
+ * - Reject: Changes status from 'paid' to 'rejected'
+ * This is used when admin manually reviews the payment receipt
  */
 
 export async function PATCH(
@@ -18,8 +20,15 @@ export async function PATCH(
     const admin = await requireAdmin()
     
     const { id, paymentId } = await params
+    const body = await request.json()
+    const { action, reason } = body // action: 'accept' | 'reject', reason: optional rejection reason
     
-    console.log(`🔍 Admin ${admin.id} verifying payment ${paymentId} for client ${id}`)
+    console.log(`🔍 Admin ${admin.id} reviewing payment ${paymentId} for client ${id} - Action: ${action}`)
+    
+    // Validate action
+    if (!action || !['accept', 'reject'].includes(action)) {
+      return NextResponse.json({ error: "Action must be 'accept' or 'reject'" }, { status: 400 })
+    }
     
     // Get the payment
     const payment = await prisma.payment.findUnique({
@@ -38,13 +47,14 @@ export async function PATCH(
       return NextResponse.json({ error: "Payment is not in 'paid' status" }, { status: 400 })
     }
     
-    // Update payment to verified
+    // Update payment based on admin action
     const updatedPayment = await prisma.payment.update({
       where: { id: paymentId },
       data: {
-        status: 'verified',
+        status: action === 'accept' ? 'verified' : 'rejected',
         verifiedBy: admin.id,
-        verifiedAt: new Date()
+        verifiedAt: new Date(),
+        ...(action === 'reject' && reason ? { rejectionReason: reason } : {})
       }
     })
     
@@ -85,10 +95,12 @@ export async function PATCH(
       remainingAmount: totalPending
     }
     
-    console.log(`✅ Payment ${paymentId} verified successfully`)
+    console.log(`✅ Payment ${paymentId} ${action === 'accept' ? 'accepted' : 'rejected'} successfully`)
     
     return NextResponse.json({
       success: true,
+      action: action,
+      message: action === 'accept' ? 'Paiement accepté avec succès' : 'Paiement rejeté',
       payment: updatedPayment,
       client: enrichedClient
     })

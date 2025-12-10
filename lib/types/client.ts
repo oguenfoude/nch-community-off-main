@@ -55,7 +55,7 @@ export interface Payment {
     paymentType: 'initial' | 'second'
     paymentMethod: string
     amount: number
-    status: 'pending' | 'verified' | 'completed' | 'failed'
+    status: 'pending' | 'paid' | 'verified' | 'rejected' | 'completed' | 'failed'
     transactionId?: string | null
     orderId?: string | null
     gatewayResponse?: Record<string, unknown> | null
@@ -69,6 +69,7 @@ export interface Payment {
         receiptNumber?: string
     } | null
     receiptUrl?: string | null
+    rejectionReason?: string | null
     verifiedBy?: string | null
     verifiedAt?: string | null
     createdAt: string

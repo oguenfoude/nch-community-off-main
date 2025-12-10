@@ -101,43 +101,17 @@ export const PaymentStep = ({
   }
 
   const downloadGuarantee = async () => {
-    const name = `${formData.firstName || ''} ${formData.lastName || ''}`.trim()
-    const phone = formData.phone
-    const offer = formData.selectedOffer
-
-    if (!name || !phone || !offer) {
-      toast.error('Veuillez remplir toutes les informations avant de télécharger.')
-      return
-    }
-
     try {
       setIsDownloading(true)
 
-      const params = new URLSearchParams({
-        name,
-        phone,
-        offer,
-        email: formData.email || '',
-        address: formData.wilaya || '',
-        format: 'pdf'
-      })
-
-      formData.selectedCountries?.forEach(country => {
-        params.append('selectedCountries', country)
-      })
-
-      const response = await fetch(`/api/generatepdf?${params}`)
-      if (!response.ok) throw new Error('Erreur lors de la génération')
-
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
+      // Direct download of the static PDF file
       const link = document.createElement('a')
-      link.href = url
-      link.download = 'Contrat_Garantie_NCH.docx'
+      link.href = '/garenttie.pdf'
+      link.download = 'Contrat_Garantie_NCH.pdf'
+      link.target = '_blank'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
 
       toast.success('Contrat téléchargé avec succès')
     } catch (error) {
@@ -175,8 +149,6 @@ export const PaymentStep = ({
     return prices[formData.selectedOffer as keyof typeof prices]?.[type] || '—'
   }
 
-  const hasRequiredData = formData.firstName && formData.lastName && formData.phone && formData.selectedOffer
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -200,11 +172,11 @@ export const PaymentStep = ({
           <Button
             type="button"
             onClick={downloadGuarantee}
-            disabled={isDownloading || !hasRequiredData}
+            disabled={isDownloading}
             className="bg-[#042d8e] hover:bg-[#042d8e]/90"
           >
             <Download className={`h-4 w-4 mr-2 ${isDownloading ? 'animate-spin' : ''}`} />
-            {isDownloading ? 'Génération...' : 'Télécharger'}
+            {isDownloading ? 'Téléchargement...' : 'Télécharger'}
           </Button>
         </div>
       </div>

@@ -71,6 +71,7 @@ model Payment {
   // Admin verification
   verifiedBy        String?  @db.ObjectId
   verifiedAt        DateTime?
+  rejectionReason   String?  // Reason if payment is rejected
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

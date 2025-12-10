@@ -12,6 +12,16 @@ import { Loader2, ArrowLeft, User, Mail, Phone, MapPin, GraduationCap, Globe, Cr
 import { toast } from "sonner"
 import type { Client, DocumentInfo } from "@/lib/types"
 
+interface Payment {
+  id: string
+  paymentType: string
+  paymentMethod: string
+  amount: number
+  status: 'pending' | 'paid' | 'verified' | 'rejected' | 'completed' | 'failed'
+  receiptUrl?: string
+  createdAt: string
+}
+
 interface PageProps {
   params: Promise<{ id: string }>
 }
@@ -137,29 +147,20 @@ export default function ClientDetailPage({ params }: PageProps) {
     }
   }
 
-  async function handleVerifyPayment() {
-    if (!client || !confirm("Vérifier ce paiement BaridiMob ?")) return
+  async function handlePaymentAction(paymentId: string, action: 'accept' | 'reject', reason?: string) {
     setVerifyingPayment(true)
     try {
-      // Find the pending payment that needs verification
-      const paidPayment = client.payments?.find(p => p.status === 'pending' && p.paymentMethod === 'baridimob')
-      
-      if (!paidPayment) {
-        toast.error("Aucun paiement à vérifier")
-        return
-      }
-
-      // Update payment to verified via the payment-status API
-      const res = await fetch(`/api/clients/${id}/payment/${paidPayment.id}/verify`, {
+      const res = await fetch(`/api/clients/${id}/payment/${paymentId}/verify`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, reason })
       })
       
-      if (!res.ok) throw new Error("Erreur de vérification")
+      if (!res.ok) throw new Error(`Erreur ${action === 'accept' ? "d'acceptation" : "de rejet"}`)
       
       // Refresh client data
       await fetchClient()
-      toast.success("🎉 Paiement vérifié !")
+      toast.success(action === 'accept' ? "✅ Paiement accepté !" : "❌ Paiement rejeté")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur")
     } finally {
@@ -555,7 +556,7 @@ export default function ClientDetailPage({ params }: PageProps) {
                 <p className="text-sm font-medium mb-3">Historique des paiements</p>
                 <div className="space-y-2">
                   {client.payments.map(payment => {
-                    const needsVerification = payment.status === 'pending' && payment.paymentMethod === 'baridimob'
+                    const needsVerification = (payment.status === 'pending' || payment.status === 'paid') && payment.paymentMethod === 'baridimob'
                     
                     return (
                       <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -563,7 +564,9 @@ export default function ClientDetailPage({ params }: PageProps) {
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-medium capitalize">{payment.paymentMethod}</p>
                             {needsVerification && (
-                              <Badge className="bg-orange-500 text-white text-xs">En attente de vérification</Badge>
+                              <Badge className="bg-orange-500 text-white text-xs">
+                                {payment.status === 'paid' ? 'Soumis - À vérifier' : 'En attente de vérification'}
+                              </Badge>
                             )}
                           </div>
                           <p className="text-xs text-gray-500">{formatDate(payment.createdAt)}</p>
@@ -572,21 +575,37 @@ export default function ClientDetailPage({ params }: PageProps) {
                           <div>
                             <p className="font-medium">{formatAmount(payment.amount)}</p>
                             <Badge variant="outline" className="text-xs">
-                              {payment.status === "verified" ? "Vérifié" : 
+                              {payment.status === "verified" ? "Accepté" : 
+                               payment.status === "paid" ? "Soumis" :
                                payment.status === "pending" ? "En attente" : 
+                               payment.status === "rejected" ? "Rejeté" :
                                payment.status === "failed" ? "Échoué" : payment.status}
                             </Badge>
                           </div>
                           {needsVerification && (
-                            <Button
-                              size="sm"
-                              onClick={handleVerifyPayment}
-                              disabled={verifyingPayment}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              {verifyingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
-                              Vérifier
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handlePaymentAction(payment.id, 'accept')}
+                                disabled={verifyingPayment}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                {verifyingPayment ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  const reason = prompt("Raison du rejet (optionnel):")
+                                  if (reason !== null) { // User didn't cancel
+                                    handlePaymentAction(payment.id, 'reject', reason || undefined)
+                                  }
+                                }}
+                                disabled={verifyingPayment}
+                                variant="destructive"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </div>
