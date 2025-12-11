@@ -24,6 +24,7 @@ interface ClientRegistrationData {
         workCertificate?: { url?: string } | string | null
         photo?: { url?: string } | string | null
         paymentReceipt?: { url?: string } | string | null
+        guarantee?: { url?: string; fileId?: string; name?: string; type?: string } | null
     }
     password?: string
     createdAt?: Date
@@ -64,6 +65,9 @@ const SHEET_HEADERS = [
     'Diplôme (doc)',
     'Certificat Travail',
     'Photo',
+    
+    // Guarantee Document
+    'Document Garantie',
     
     // System
     'Mot de Passe',
@@ -262,6 +266,9 @@ export async function appendClientToSheet(data: ClientRegistrationData): Promise
             'Certificat Travail': getDocumentUrl(data.documents?.workCertificate),
             'Photo': getDocumentUrl(data.documents?.photo),
             
+            // Guarantee Document (empty initially)
+            'Document Garantie': '',
+            
             // System
             'Mot de Passe': data.password || '',
             'Dernière Mise à Jour': new Date().toLocaleString('fr-FR', { timeZone: 'Africa/Algiers' })
@@ -347,6 +354,14 @@ export async function updateClientInSheet(
                 clientRow.set('Reçu 2ème Paiement', getDocumentUrl(updates.documents.paymentReceipt))
             } else {
                 clientRow.set('Reçu 1er Paiement', getDocumentUrl(updates.documents.paymentReceipt))
+            }
+        }
+        
+        // Update guarantee document
+        if ((updates.documents as any)?.guarantee) {
+            const guaranteeDoc = (updates.documents as any).guarantee
+            if (guaranteeDoc.url) {
+                clientRow.set('Document Garantie', getDocumentUrl(guaranteeDoc))
             }
         }
 

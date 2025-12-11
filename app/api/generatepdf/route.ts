@@ -2,146 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import PizZip from "pizzip";
-import Docxtemplater from "docxtemplater";
-import puppeteer from "puppeteer";
-import mammoth from "mammoth";
 import { getTotalPrice } from "@/lib/constants/pricing";
 
-// Fonction pour convertir DOCX en PDF via HTML
-async function convertDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
-  let browser = null;
-  let page = null;
+// ==========================================
+// HELPER FUNCTIONS - Clear responsibilities
+// ==========================================
 
-  try {
-    console.log('🔄 Conversion DOCX vers HTML...');
-
-    // Convertir DOCX en HTML
-    const result = await mammoth.convertToHtml({ buffer: docxBuffer });
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { 
-              font-family: 'Arial', sans-serif; 
-              margin: 40px; 
-              line-height: 1.6;
-              color: #333;
-            }
-            .contract { 
-              max-width: 800px; 
-              margin: 0 auto; 
-              padding: 20px;
-            }
-            h1, h2 { 
-              color: #2c3e50; 
-              border-bottom: 2px solid #3498db;
-              padding-bottom: 10px;
-            }
-            .info-section {
-              margin: 20px 0;
-              padding: 15px;
-              background-color: #f8f9fa;
-              border-left: 4px solid #3498db;
-            }
-            .signature-section {
-              margin-top: 50px;
-              display: flex;
-              justify-content: space-between;
-            }
-            .signature-box {
-              width: 200px;
-              border-top: 1px solid #333;
-              text-align: center;
-              padding-top: 5px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="contract">
-            ${result.value}
-          </div>
-        </body>
-      </html>
-    `;
-
-    console.log('🚀 Lancement de Puppeteer...');
-
-    // Configuration Puppeteer améliorée
-    browser = await puppeteer.launch({
-      headless: true,
-      timeout: 30000, // ✅ Augmenter le timeout
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding'
-      ]
-    });
-
-    page = await browser.newPage();
-
-    // ✅ Augmenter les timeouts et améliorer la configuration
-    await page.setDefaultTimeout(30000);
-    await page.setDefaultNavigationTimeout(30000);
-
-    console.log('📄 Chargement du contenu HTML...');
-    await page.setContent(html, {
-      waitUntil: 'domcontentloaded', // ✅ Changé de 'networkidle0' à 'domcontentloaded'
-      timeout: 30000
-    });
-
-    // ✅ Attendre que la page soit prête
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    console.log('📄 Génération du PDF...');
-
-    // Générer le PDF avec une meilleure configuration
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm'
-      },
-      timeout: 30000 // ✅ Ajouter timeout pour PDF
-    });
-
-    console.log('✅ PDF généré avec succès via Puppeteer');
-
-    return Buffer.from(pdfBuffer);
-
-  } catch (error) {
-    console.error('❌ Erreur conversion Puppeteer:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Erreur conversion PDF: ${errorMessage}`);
-  } finally {
-    // ✅ Assurer la fermeture propre du navigateur
-    try {
-      if (page) {
-        await page.close();
-      }
-      if (browser) {
-        await browser.close();
-      }
-    } catch (closeError) {
-      console.error('❌ Erreur fermeture Puppeteer:', closeError);
-    }
-  }
-}
-
+/**
+ * Get number of companies based on offer type
+ */
 const getNumberEntreprises = (offer: string): string => {
-  console.log("number entreprises : ", offer);
   switch (offer) {
     case 'basic': return "50"
     case 'premium': return "100"
@@ -150,130 +20,154 @@ const getNumberEntreprises = (offer: string): string => {
   }
 }
 
+/**
+ * Get the template file path
+ */
+const getTemplatePath = (): string => {
+  return path.join(process.cwd(), "public", "garenttie.docx");
+}
+
+/**
+ * Generate DOCX document from template with client data
+ * Uses find-and-replace on XML content for reliable placeholder substitution
+ */
+const generateDocxFromTemplate = (
+  templatePath: string,
+  data: {
+    name: string;
+    phone: string;
+    offer: string;
+    selectedCountries: string[];
+  }
+): Buffer => {
+  console.log('📁 Reading template...');
+  const content = fs.readFileSync(templatePath, "binary");
+  const zip = new PizZip(content);
+
+  // Derive clean first/last names (avoid double repeats)
+  const parts = (data.name || '').trim().split(/\s+/);
+  const firstName = parts[0] || data.name || 'Client';
+  const lastName = parts.slice(1).join(' ');
+  const displayName = [firstName, lastName].filter(Boolean).join(' ');
+
+  // Prepare replacement data
+  const amount = getTotalPrice(data.offer);
+  const entreprises = getNumberEntreprises(data.offer);
+  const paysListe = data.selectedCountries.length > 0 
+    ? data.selectedCountries.join(', ') 
+    : 'les pays choisis selon votre offre';
+  const nombrePays = data.selectedCountries.length > 0 
+    ? data.selectedCountries.length.toString() 
+    : 'plusieurs';
+
+  // Create replacement map for the new simplified placeholder format
+  // Using String.fromCharCode for the curly apostrophe (') to ensure exact match
+  const apostrophe = String.fromCharCode(8217);
+  const replacements: Record<string, string> = {
+    "(fullname)": displayName,
+    "(telephone)": data.phone,
+    [`(nombre de pays mentionne dans l${apostrophe}offre)`]: nombrePays,
+    "(les pays mentionnée)": paysListe,
+    "(les pays mentionnee)": paysListe,
+    "(nombre d'entreprises)": entreprises,
+    "(le montant)": `${amount}`,
+    "(la date)": new Date().toLocaleDateString('fr-FR'),
+  };
+
+  console.log('🔄 Replacement data prepared:', {
+    displayName,
+    phone: data.phone,
+    nombrePays,
+    paysListe,
+    amount,
+    date: new Date().toLocaleDateString('fr-FR')
+  });
+
+  console.log('🔄 Replacing placeholders in <w:t> nodes');
+
+  // Get main document content
+  let docContent = zip.file("word/document.xml")?.asText() || "";
+
+  // First pass: Clean up split placeholders by removing XML tags between placeholder parts
+  // Fix "(le </w:t>...<w:t>montant)" → "(le montant)"
+  docContent = docContent.replace(/\(le<\/w:t>[\s\S]*?<w:t[^>]*>\s*montant\)/gi, '(le montant)');
+  // Fix "(la </w:t>...<w:t>date)" → "(la date)"
+  docContent = docContent.replace(/\(la<\/w:t>[\s\S]*?<w:t[^>]*>\s*date\)/gi, '(la date)');
+  
+  // Second pass: Replace inside text nodes
+  let updatedContent = docContent.replace(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g, (full, text) => {
+    let newText = text;
+    for (const [needle, value] of Object.entries(replacements)) {
+      if (newText.includes(needle)) {
+        newText = newText.split(needle).join(value);
+      }
+    }
+    return full.replace(text, newText);
+  });
+
+  // Third pass: Global replacement for any remaining placeholders
+  for (const [needle, value] of Object.entries(replacements)) {
+    if (updatedContent.includes(needle)) {
+      updatedContent = updatedContent.split(needle).join(value);
+      console.log(`  ✓ Global replaced "${needle}" → "${value}"`);
+    }
+  }
+
+  // Update the zip with modified content
+  zip.file("word/document.xml", updatedContent);
+
+  // Generate buffer
+  const docxBuffer = zip.generate({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+  });
+
+  console.log('✅ Document generated successfully with all placeholders replaced');
+  return docxBuffer;
+}
+
+// ==========================================
+// API ENDPOINT
+// ==========================================
+
 export async function GET(req: NextRequest) {
   try {
-    // 1. Récupérer les paramètres de l'URL
+    // 1. Get and validate parameters
     const { searchParams } = new URL(req.url);
     const name = searchParams.get('name') || "Client NCH";
     const phone = searchParams.get('phone');
     const offer = searchParams.get('offer');
-    const format = searchParams.get('format') || 'pdf'; // 'pdf' ou 'docx'
     const selectedCountries = searchParams.getAll('selectedCountries');
-    console.log('📝 Paramètres reçus:', { name, phone, offer, format });
+    
+    console.log('📝 Request params:', { name, phone, offer });
 
-    // 2. Validation des paramètres
     if (!name || !phone || !offer || offer === 'undefined') {
       return NextResponse.json(
-        { error: "Paramètres manquants ou invalides: name, phone, offer sont requis" },
+        { error: "Missing or invalid parameters: name, phone, offer are required" },
         { status: 400 }
       );
     }
 
-    // 3. Lire le fichier DOCX template
-    // Remplacez la ligne 26 par :
-    const templatePath = path.join(process.cwd(), "lib", "templates", "garantie-template.docx"); console.log('🔍 Chemin du template:', templatePath);
-
+    // 2. Check template exists
+    const templatePath = getTemplatePath();
     if (!fs.existsSync(templatePath)) {
-      console.error('❌ Template DOCX non trouvé:', templatePath);
-
-      // Debug: lister les fichiers
-      try {
-        const publicFiles = fs.readdirSync(path.join(process.cwd(), "public"));
-        console.log('📁 Fichiers dans public:', publicFiles);
-      } catch (err) {
-        console.error('❌ Erreur lecture public:', err);
-      }
-
+      console.error('❌ Template not found:', templatePath);
       return NextResponse.json(
-        { error: "Template DOCX non trouvé" },
+        { error: "Template file not found" },
         { status: 404 }
       );
     }
 
-    console.log('📁 Lecture du template DOCX...');
-    const content = fs.readFileSync(templatePath, "binary");
-
-    // 4. Créer une instance PizZip avec le contenu du fichier
-    const zip = new PizZip(content);
-
-    // 5. Créer une instance Docxtemplater
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
+    // 3. Generate DOCX
+    const docxBuffer = generateDocxFromTemplate(templatePath, {
+      name,
+      phone,
+      offer,
+      selectedCountries
     });
 
-    const amount = getTotalPrice(offer);
-    const entreprises = getNumberEntreprises(offer);
-    console.log('💼 Nombre d\'entreprises pour l\'offre:', entreprises)
-    console.log('💰 Montant pour l\'offre:', amount)
-    console.log('🌍 Pays sélectionnés:', selectedCountries)
-    // 6. Définir les données pour remplacer les placeholders
-    const templateData = {
-      name: name,
-      phone: phone,
-      email: searchParams.get('email') || '',
-      address: searchParams.get('address') || '',
-      amount: amount,
-      pays: selectedCountries,
-      entreprises: entreprises,
-      offer: offer,
-      offerDescription: searchParams.get('description') || 'Services NCH Community',
-      contractDate: new Date().toLocaleDateString('fr-FR'),
-      startDate: new Date().toLocaleDateString('fr-FR'),
-      date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR'),
-      companyName: "NCH Community",
-      companyAddress: "Votre adresse",
-      companyPhone: "Votre téléphone",
-      companyEmail: "contact@nch-community.online",
-      contractNumber: `NCH-${Date.now()}`,
-      warrantyPeriod: "12 mois",
-      paymentTerms: "30 jours",
-
-    };
-
-    console.log('🔄 Remplacement des placeholders...');
-
-    // 7. Remplacer les placeholders avec les données
-    doc.render(templateData);
-
-    // 8. Générer le document DOCX modifié
-    const docxBuffer = doc.getZip().generate({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-    });
-
-    console.log('✅ Document DOCX généré avec succès');
-
-    // 9. Convertir en PDF si demandé
-    // if (format === 'pdf') {
-    //   try {
-    //     const pdfBuffer = await convertDocxToPdf(docxBuffer);
-
-    //     return new NextResponse(pdfBuffer, {
-    //       status: 200,
-    //       headers: {
-    //         'Content-Type': 'application/pdf',
-    //         'Content-Disposition': 'attachment; filename="Contrat_Garantie_NCH.pdf"',
-    //         'Content-Length': pdfBuffer.length.toString(),
-    //       },
-    //     });
-    //   } catch (pdfError) {
-    //     console.error('❌ Erreur conversion PDF:', pdfError);
-
-    //     // Fallback: retourner le DOCX si la conversion échoue
-    //     return new NextResponse(docxBuffer, {
-    //       status: 200,
-    //       headers: {
-    //         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    //         'Content-Disposition': 'attachment; filename="Contrat_Garantie_NCH.docx"',
-    //         'Content-Length': docxBuffer.length.toString(),
-    //       },
-    //     });
-    //   }
-    // }
-
-    // 10. Retourner le fichier DOCX
-    return new NextResponse(new Uint8Array(docxBuffer), {
+    // 4. Return DOCX document
+    return new NextResponse(docxBuffer as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -283,11 +177,11 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Erreur génération document:', error);
+    console.error('❌ Document generation error:', error);
     const err = error instanceof Error ? error : new Error('Unknown error');
     return NextResponse.json(
       {
-        error: "Erreur lors de la génération du document",
+        error: "Error generating document",
         details: err.message,
         stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
       },
@@ -295,111 +189,4 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const {
-      name,
-      phone,
-      offer,
-      email,
-      address,
-      description,
-      format = 'pdf'
-    } = body;
-
-    console.log('📝 Données POST reçues:', body);
-
-    // Validation des données
-    if (!name || !phone || !offer) {
-      return NextResponse.json(
-        { error: "Données manquantes: name, phone, offer sont requis" },
-        { status: 400 }
-      );
-    }
-
-    // Lire le template
-    const templatePath = path.join(process.cwd(), "public", "garantie-template.docx");
-
-    if (!fs.existsSync(templatePath)) {
-      return NextResponse.json(
-        { error: "Template DOCX non trouvé" },
-        { status: 404 }
-      );
-    }
-
-    const content = fs.readFileSync(templatePath, "binary");
-    const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-    });
-
-    // Données pour les placeholders
-    const templateData = {
-      clientName: name,
-      clientPhone: phone,
-      clientEmail: email || '',
-      clientAddress: address || '',
-      offerAmount: offer,
-      offerDescription: description || 'Services NCH Community',
-      contractDate: new Date().toLocaleDateString('fr-FR'),
-      startDate: new Date().toLocaleDateString('fr-FR'),
-      endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR'),
-      companyName: "NCH Community",
-      companyAddress: "Votre adresse",
-      companyPhone: "Votre téléphone",
-      companyEmail: "contact@nch-community.online",
-      contractNumber: `NCH-${Date.now()}`,
-      warrantyPeriod: "12 mois",
-      paymentTerms: "30 jours",
-    };
-
-    // Générer le document DOCX
-    doc.render(templateData);
-    const docxBuffer = doc.getZip().generate({
-      type: "nodebuffer",
-      compression: "DEFLATE",
-    });
-
-    // Convertir en PDF si demandé
-    if (format === 'pdf') {
-      try {
-        const pdfBuffer = await convertDocxToPdf(docxBuffer);
-
-        return new NextResponse(new Uint8Array(pdfBuffer), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename="Contrat_Garantie_NCH.pdf"',
-            'Content-Length': pdfBuffer.length.toString(),
-          },
-        });
-      } catch (pdfError) {
-        console.error('❌ Erreur conversion PDF:', pdfError);
-        // Fallback vers DOCX
-      }
-    }
-
-    // Retourner DOCX
-    return new NextResponse(new Uint8Array(docxBuffer), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'Content-Disposition': 'attachment; filename="Contrat_Garantie_NCH.docx"',
-        'Content-Length': docxBuffer.length.toString(),
-      },
-    });
-
-  } catch (error) {
-    console.error('❌ Erreur génération document (POST):', error);
-    const err = error instanceof Error ? error : new Error('Unknown error');
-    return NextResponse.json(
-      { error: "Erreur lors de la génération du document", details: err.message },
-      { status: 500 }
-    );
-  }
-}
-
 

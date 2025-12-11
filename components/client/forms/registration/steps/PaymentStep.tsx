@@ -104,18 +104,53 @@ export const PaymentStep = ({
     try {
       setIsDownloading(true)
 
-      // Direct download of the static PDF file
+      // Get client name and phone from form data
+      const fullName = `${formData.firstName} ${formData.lastName}`
+      const phone = formData.phone
+      const offer = formData.selectedOffer
+      const selectedCountries = formData.selectedCountries || []
+
+      if (!fullName || !phone || !offer) {
+        toast.error('Veuillez remplir vos informations personnelles d\'abord')
+        return
+      }
+
+      // Build query parameters
+      const params = new URLSearchParams({
+        name: fullName,
+        phone: phone,
+        offer: offer
+      })
+
+      // Add selected countries only if they exist
+      if (selectedCountries.length > 0) {
+        selectedCountries.forEach((country: string) => {
+          params.append('selectedCountries', country)
+        })
+      }
+
+      // Generate personalized DOCX
+      const response = await fetch(`/api/generatepdf?${params.toString()}`)
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors de la génération du document')
+      }
+
+      // Download the generated DOCX
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.href = '/garenttie.pdf'
-      link.download = 'Contrat_Garantie_NCH.pdf'
-      link.target = '_blank'
+      link.href = url
+      link.download = `Contrat_Garantie_${formData.firstName}_${formData.lastName}.docx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
 
-      toast.success('Contrat téléchargé avec succès')
+      toast.success('Document téléchargé - Vous pouvez le convertir en PDF')
     } catch (error) {
-      toast.error('Erreur lors du téléchargement')
+      console.error('Erreur téléchargement:', error)
+      toast.error('Erreur lors du téléchargement du contrat')
     } finally {
       setIsDownloading(false)
     }
