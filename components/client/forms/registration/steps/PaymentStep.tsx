@@ -231,7 +231,7 @@ export const PaymentStep = ({
           <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mx-auto mb-2">
             <CreditCard className="h-5 w-5 text-white" />
           </div>
-          <p className="text-sm font-medium text-gray-900">Carte CIB</p>
+          <p className="text-sm font-medium text-gray-900">Carte CIB / DAHABIA</p>
           <p className="text-xs text-gray-500 mt-1">Paiement en ligne sécurisé</p>
         </button>
 
