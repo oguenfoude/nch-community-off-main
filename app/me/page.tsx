@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -62,7 +62,7 @@ interface ClientData {
     payments?: Payment[]
 }
 
-export default function ClientDashboard() {
+function ClientDashboardContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [client, setClient] = useState<ClientData | null>(null)
@@ -595,5 +595,16 @@ export default function ClientDashboard() {
                 </Card>
             </main>
         </div>
+    )
+}
+export default function ClientDashboard() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-[#042d8e]" />
+            </div>
+        }>
+            <ClientDashboardContent />
+        </Suspense>
     )
 }
