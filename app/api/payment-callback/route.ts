@@ -13,6 +13,7 @@ import {
 } from '@/lib/services/payment.service'
 import { prisma } from '@/lib/prisma'
 import { getRemainingAmount } from '@/lib/constants/pricing'
+import { trackPurchase } from '@/lib/meta-pixel'
 
 export async function GET(request: NextRequest) {
   try {
@@ -111,6 +112,11 @@ export async function GET(request: NextRequest) {
         }
 
         console.log('✅ Second payment completed')
+        
+        // Track successful purchase (second payment)
+        const amount = parseFloat(regData.amount || '0')
+        trackPurchase(regData.selectedOffer || 'Unknown', amount, 'second')
+        
         return NextResponse.redirect(new URL('/me?payment=success&type=second', baseUrl))
       }
 
@@ -135,6 +141,10 @@ export async function GET(request: NextRequest) {
       // Build success URL
       const paymentType = regData.paymentType || 'partial'
       const remainingAmount = getRemainingAmount(regData.selectedOffer, paymentType)
+      
+      // Track successful purchase (initial payment)
+      const paidAmount = parseFloat(amount || '0')
+      trackPurchase(regData.selectedOffer, paidAmount, paymentType)
       
       const successParams = new URLSearchParams({
         email: result.credentials?.email || '',

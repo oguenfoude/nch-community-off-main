@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner"
 import { logoutClient } from "@/lib/actions/auth.actions"
 import Link from "next/link"
+import { trackPurchase } from '@/lib/meta-pixel'
 
 interface Stage {
     id: string
@@ -63,12 +64,26 @@ interface ClientData {
 
 export default function ClientDashboard() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [client, setClient] = useState<ClientData | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
         fetchClientData()
     }, [])
+    
+    // Track successful second payment when client data is loaded
+    useEffect(() => {
+        const paymentStatus = searchParams.get('payment')
+        const paymentType = searchParams.get('type')
+        
+        if (paymentStatus === 'success' && paymentType === 'second' && client) {
+            // Track purchase conversion for second payment
+            const amount = client.remainingAmount || 5000 // Fallback to estimated amount
+            trackPurchase(client.selectedOffer, amount, 'second')
+            toast.success('Paiement effectué avec succès !')
+        }
+    }, [client, searchParams])
 
     const fetchClientData = async () => {
         try {

@@ -14,6 +14,7 @@ import { STEPS } from '@/lib/constants'
 import { Loader2, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react'
 import { useFileUpload } from '@/hooks/useFileUpload'
 import { toast } from 'sonner'
+import { trackRegistrationStarted } from '@/lib/meta-pixel'
 
 type RegistrationOptions = {
     language: Language
@@ -202,6 +203,10 @@ const RegistrationForm = ({ language, onSubmit, isSubmitting }: RegistrationOpti
     // ✅ Next button - NO validation, just go to next step
     const handleNext = () => {
         if (!isLastStep) {
+            // Track when user progresses through registration
+            if (currentStep === 1) {
+                trackRegistrationStarted()
+            }
             nextStep()
         }
     }

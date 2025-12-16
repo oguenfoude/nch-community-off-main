@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ADMIN_PAYMENT_INFO } from '@/lib/constants/adminPayment'
 import { toast } from 'sonner'
+import { trackPaymentInitiated } from '@/lib/meta-pixel'
 
 interface PaymentStepProps {
   formData: RegistrationFormData
@@ -77,6 +78,17 @@ export const PaymentStep = ({
   }
 
   const selectPaymentMethod = (method: PaymentMethod) => {
+    // Track payment initiation
+    const amounts: Record<string, number> = {
+      basic: 9000,
+      premium: 14000,
+      gold: 19000,
+      vip: 25000
+    }
+    const offerAmount = amounts[formData.selectedOffer?.toLowerCase() || ''] || 0
+    const paymentAmount = formData.paymentType === 'full' ? offerAmount : offerAmount / 2
+    trackPaymentInitiated(method, paymentAmount)
+    
     if (method === 'cib') {
       onChange({ 
         paymentMethod: 'cib',

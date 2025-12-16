@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Header } from '@/components/client/layout/Header'
 import { Hero } from '@/components/client/layout/Hero'
@@ -9,6 +9,7 @@ import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import RegistrationForm from '@/components/client/forms/registration/RegistrationForm'
 import { translations } from '@/lib/translations'
 import { FormData, Language } from '@/lib/types/form'
+import { trackLead } from '@/lib/meta-pixel'
 
 export default function NCHCommunity() {
   const router = useRouter()
@@ -16,6 +17,11 @@ export default function NCHCommunity() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const t = translations[language]
+
+  // Track lead when user lands on homepage
+  useEffect(() => {
+    trackLead()
+  }, [])
 
   const handleFormSubmit = async (formData: FormData) => {
     setIsSubmitting(true)

@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Cairo } from "next/font/google"
 import { Outfit } from "next/font/google"
 import { Toaster } from "@/components/ui/toaster"
+import MetaPixel from "@/components/MetaPixel"
 
 import "./globals.css"
 import { Providers } from "./providers"
@@ -40,7 +41,7 @@ export default function RootLayout({
           {children}
           <Toaster />
         </Providers>
-
+        <MetaPixel />
       </body>
     </html>
   )

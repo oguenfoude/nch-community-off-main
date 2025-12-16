@@ -8,6 +8,7 @@ import { CheckCircle, User, Mail, Key, LogIn, Copy, Check, Languages, Download }
 import Link from "next/link"
 import { toast } from "sonner"
 import { useSearchParams } from 'next/navigation'
+import { trackRegistrationCompleted } from '@/lib/meta-pixel'
 
 type Language = 'fr' | 'ar'
 
@@ -99,6 +100,19 @@ function SuccessContent() {
             setClientName(nameParams || '')
             setSelectedOffer(offerParams || '')
             setLanguage(langParams || 'fr')
+            
+            // Track successful registration completion
+            if (offerParams) {
+                // Get amount based on offer type (you can adjust these values)
+                const amounts: Record<string, number> = {
+                    basic: 9000,
+                    premium: 14000,
+                    gold: 19000,
+                    vip: 25000
+                }
+                const amount = amounts[offerParams.toLowerCase()] || 0
+                trackRegistrationCompleted(offerParams, amount)
+            }
         } else {
             // ✅ Fallback vers sessionStorage
             console.log('💾 Utilisation du sessionStorage')
@@ -113,6 +127,18 @@ function SuccessContent() {
             setTemporaryPassword(tempPassword)
             setEmail(sessionEmail)
             setLanguage(savedLanguage)
+            
+            // Track successful registration completion from sessionStorage
+            if (offer) {
+                const amounts: Record<string, number> = {
+                    basic: 9000,
+                    premium: 14000,
+                    gold: 19000,
+                    vip: 25000
+                }
+                const amount = amounts[offer.toLowerCase()] || 0
+                trackRegistrationCompleted(offer, amount)
+            }
         }
 
         // ✅ Nettoyer le sessionStorage après utilisation (optionnel)
